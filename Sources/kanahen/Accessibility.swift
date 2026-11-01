@@ -3,12 +3,14 @@ import GobakuCore
 
 enum FocusedTextError: Error, CustomStringConvertible {
     case noFocusedElement(AXError)
+    case secureField
     case noValue(AXError)
     case noSelectedRange(AXError)
 
     var description: String {
         switch self {
         case .noFocusedElement(let e): return "フォーカス中の要素を取得できない (AXError \(e.rawValue))"
+        case .secureField: return "パスワード欄"
         case .noValue(let e): return "入力欄の文字列を取得できない (AXError \(e.rawValue))"
         case .noSelectedRange(let e): return "カーソル位置を取得できない (AXError \(e.rawValue))"
         }
@@ -39,8 +41,10 @@ enum Accessibility {
     private static func read(_ app: AXUIElement) -> Result<FocusedText, FocusedTextError> {
         var focused: CFTypeRef?
         let fe = AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused)
-        guard fe == .success, let focused else { return .failure(.noFocusedElement(fe)) }
-        let element = focused as! AXUIElement
+        guard fe == .success, let focused, let element = focused as? AXUIElement else {
+            return .failure(.noFocusedElement(fe))
+        }
+        if isSecureField(element) { return .failure(.secureField) }
 
         var value: CFTypeRef?
         let ve = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value)
@@ -49,9 +53,18 @@ enum Accessibility {
         var rangeRef: CFTypeRef?
         let re = AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef)
         var range = CFRange()
-        guard re == .success, let rangeRef, AXValueGetValue(rangeRef as! AXValue, .cfRange, &range) else {
+        guard re == .success, let rangeRef, let axValue = rangeRef as? AXValue,
+              AXValueGetValue(axValue, .cfRange, &range) else {
             return .failure(.noSelectedRange(re))
         }
         return .success(FocusedText(text: text, caret: range.location, selectionLength: range.length))
+    }
+
+    private static func isSecureField(_ element: AXUIElement) -> Bool {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &ref) == .success else {
+            return false
+        }
+        return (ref as? String) == (kAXSecureTextFieldSubrole as String)
     }
 }

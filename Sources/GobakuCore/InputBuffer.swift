@@ -14,20 +14,39 @@ public struct InputBuffer {
     }
 
     public mutating func append(_ c: Character, at now: Date = Date()) {
-        if let last = lastInput, now.timeIntervalSince(last) > idleLimit { text = "" }
+        if isStale(at: now) { reset() }
         lastInput = now
         text.append(c)
         if text.count > limit { text.removeFirst(text.count - limit) }
     }
 
     public mutating func backspace(at now: Date = Date()) {
+        if isStale(at: now) {
+            reset()
+            return
+        }
         lastInput = now
         if !text.isEmpty { text.removeLast() }
+    }
+
+    public mutating func consume(at now: Date = Date()) -> String {
+        if isStale(at: now) {
+            reset()
+            return ""
+        }
+        let committed = text
+        reset()
+        return committed
     }
 
     public mutating func reset() {
         text = ""
         lastInput = nil
+    }
+
+    private func isStale(at now: Date) -> Bool {
+        guard let last = lastInput else { return false }
+        return now.timeIntervalSince(last) > idleLimit
     }
 }
 

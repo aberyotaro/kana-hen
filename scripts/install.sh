@@ -44,7 +44,7 @@ elif [ -e "$old_config" ] && [ -e "$config_dir" ]; then
 fi
 
 signed=false
-security find-identity -p codesigning | grep -q "\"$identity\"" && signed=true
+security find-identity -p codesigning | grep -F -q -- "\"$identity\"" && signed=true
 
 # 同じソースからは同じバイナリができる。ad-hoc 署名なら中身が同じかぎり許可は外れないので、入れ替えない
 if ! $signed && cmp -s .build/release/kanahen "$dest"; then

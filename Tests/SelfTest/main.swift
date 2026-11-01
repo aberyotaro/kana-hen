@@ -113,6 +113,16 @@ for input in ["machine", "release", "panda", "undone", "homemade", "Canada", "To
 }
 
 do {
+    let words: Set<String> = ["gui", "guide", "test"]
+    let d = Detector(englishWords: words)
+    let guide = d.judge("UserGuide")
+    expect(!guide.convert, "UserGuide must stay intact: \(guide.romaji) → \(guide.kana)")
+    let kept = d.judge("testga")
+    expect(kept.convert && kept.romaji == "ga" && kept.kana == "が",
+           "testga still splits the particle: \(kept.romaji) → \(kept.kana)")
+}
+
+do {
     var b = InputBuffer(limit: 5)
     for c in "abcdefg" { b.append(c) }
     expect(b.text == "cdefg", "buffer limit: \(b.text)")
@@ -128,6 +138,26 @@ do {
     expect(b.text == "kyouh", "buffer keeps text within idle limit: \(b.text)")
     b.append("a", at: t0.addingTimeInterval(29 + 31))
     expect(b.text == "a", "buffer drops text after idle limit: \(b.text)")
+}
+
+do {
+    let t0 = Date()
+    var b = InputBuffer(idleLimit: 30)
+    for c in "kyouha" { b.append(c, at: t0) }
+    expect(b.consume(at: t0.addingTimeInterval(30)) == "kyouha", "enter at the idle limit still commits")
+    for c in "kyouha" { b.append(c, at: t0) }
+    expect(b.consume(at: t0.addingTimeInterval(31)) == "", "enter after idle discards")
+    expect(b.text.isEmpty, "enter after idle leaves the buffer empty")
+}
+
+do {
+    let t0 = Date()
+    var b = InputBuffer(idleLimit: 30)
+    for c in "kyou" { b.append(c, at: t0) }
+    b.backspace(at: t0.addingTimeInterval(10))
+    expect(b.text == "kyo", "backspace within idle deletes one character: \(b.text)")
+    b.backspace(at: t0.addingTimeInterval(10 + 31))
+    expect(b.text.isEmpty, "backspace after idle discards the buffer: \(b.text)")
 }
 
 // 消してよいのは、消す文字列がカーソル直前にあって選択がないときだけ

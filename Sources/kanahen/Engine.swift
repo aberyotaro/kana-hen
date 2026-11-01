@@ -107,6 +107,10 @@ final class Engine {
     /// キーをそのまま通すなら true
     private func handleKeyDown(_ event: CGEvent) -> Bool {
         if event.getIntegerValueField(.eventSourceUserData) == syntheticMarker { return true }
+        if IsSecureEventInputEnabled() {
+            buffer.reset()
+            return true
+        }
         if converting {
             if let copy = event.copy() { heldDuringConversion.append(copy) }
             return false
@@ -126,8 +130,7 @@ final class Engine {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         switch keyCode {
         case Key.returnKey, Key.enter:
-            let text = buffer.text
-            buffer.reset()
+            let text = buffer.consume()
             if flags.contains(.maskShift) { return true }
             return !tryConvert(text)
         case Int64(Key.delete):
@@ -158,7 +161,6 @@ final class Engine {
             log("Enter: 変換しません（\(judgment.reason)）")
             return false
         }
-        guard !IsSecureEventInputEnabled() else { return false }
         guard InputSource.find(config.japaneseInputSourceID) != nil else {
             log("日本語の入力ソースが見つからないため変換しません")
             return false
@@ -172,6 +174,9 @@ final class Engine {
                 log("Enter: 入力欄の内容が記録と一致しないため変換しません")
                 return false
             }
+        case .failure(.secureField):
+            log("Enter: パスワード欄のため変換しません")
+            return false
         case .failure(let error):
             log("Enter: 入力欄を確認できないまま変換します（\(error)）")
         }
