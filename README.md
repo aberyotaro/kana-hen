@@ -1,6 +1,6 @@
 # kana-hen
 
-英数モードで打ったローマ字を、Enter でかな入力に打ち直す macOS の常駐プログラムです。Enter は送信されません。
+英数モードで打ったローマ字を、Enter でかな入力に打ち直す macOS の常駐プログラムです。変換するとき、その Enter はアプリに届きません。
 
 `kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語＋助詞（`repositoryha`）は助詞だけを打ち直し、「repositoryは」になります。
 
@@ -114,7 +114,7 @@ scripts/uninstall.sh
 
 bundle ID は `osascript -e 'id of app "Claude"'` で分かります。
 
-変換しない語は `~/.config/kanahen/words.txt` に 1 行 1 語で書きます。`#` はコメントです。
+変換しない語は `~/.config/kanahen/words.txt` に 1 行 1 語で書きます。`#` で始まる行は読みません。
 
 ## うまくいかないとき
 
@@ -122,7 +122,7 @@ bundle ID は `osascript -e 'id of app "Claude"'` で分かります。
 - 更新のたびに許可が外れる: 証明書 `kanahen-dev` が無い。作ってから `scripts/install.sh` をやり直す。外れた項目は「−」で削除し、「＋」で追加し直す
 - 誤って変換した: 変換待ちのまま **F10** で半角英数に戻し、Enter で確定する（ことえり、Google 日本語入力）
 - ローマ字のまま送りたい: Enter の前に ← か → を押す。溜めた文字は捨てられ、判定しない。クリック、アプリの切り替え、30 秒の無入力でも捨てる。Shift+Enter は変換しない
-- パスワード欄では文字を保持しない
+- セキュア入力中は文字を溜めない。パスワード欄だと分かった Enter は変換しない
 - 打ち直しが英字のまま: `switchDelayMs` を増やす
 - ターミナルで動かない: 既定の `disabledApps` に入っている
 - 変換されない日本語: 4 文字未満、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない

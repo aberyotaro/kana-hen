@@ -161,9 +161,15 @@ public final class Detector {
             // "createfilemode" の mode のように後半が英単語なら、英単語の途中で切っている
             let suffixLetters = suffix.filter(\.isLetter)
             if !Self.particles.contains(suffixLetters), isEnglish(suffixLetters) { continue }
+            if cutsInsideDictionaryWord(prefix: prefix, suffixLetters: suffixLetters) { continue }
             return (offset, suffix, kana)
         }
         return nil
+    }
+
+    private func cutsInsideDictionaryWord(prefix: String, suffixLetters: String) -> Bool {
+        guard let last = Self.segments(prefix).last else { return false }
+        return englishWords.contains((last + suffixLetters).lowercased())
     }
 
     /// 前半として認める語。辞書にある英単語 1 語か、GitHub / API / v2 のような大文字・数字混じりの語
