@@ -3,10 +3,10 @@ import GobakuCore
 
 let usage = """
 使い方:
-  no-more-gobaku [run] [-v]     常駐して、英数モードの Enter で誤入力を判定・変換する
-  no-more-gobaku check <文字列>... 判定だけを試す（引数がなければ標準入力を 1 行ずつ）
-  no-more-gobaku sources        有効な入力ソースの ID を一覧する
-  no-more-gobaku probe [秒]     指定秒後（既定 5）に前面の入力欄を読めるか調べる（中身は表示しない）
+  kanahen [run] [-v]     常駐して、英数モードの Enter で誤入力を判定・変換する
+  kanahen check <文字列>... 判定だけを試す（引数がなければ標準入力を 1 行ずつ）
+  kanahen sources        有効な入力ソースの ID を一覧する
+  kanahen probe [秒]     指定秒後（既定 5）に前面の入力欄を読めるか調べる（中身は表示しない）
 """
 
 func makeDetector(_ config: Config) -> Detector {
@@ -29,7 +29,7 @@ case "run":
     let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
     guard AXIsProcessTrustedWithOptions(options) else {
         fputs("""
-        no-more-gobaku: アクセシビリティの許可が必要です。
+        kanahen: アクセシビリティの許可が必要です。
           システム設定 > プライバシーとセキュリティ > アクセシビリティ で、
           このコマンドを実行しているアプリ（ターミナルなど）を許可してから再実行してください。\n
         """, stderr)
@@ -37,12 +37,12 @@ case "run":
     }
     let engine = Engine(detector: makeDetector(config), config: config, verbose: verbose)
     guard engine.start() else {
-        fputs("no-more-gobaku: キー入力の監視を開始できませんでした（入力監視の許可を確認してください）\n", stderr)
+        fputs("kanahen: キー入力の監視を開始できませんでした（入力監視の許可を確認してください）\n", stderr)
         exit(1)
     }
     // LaunchAgent でファイルに出力するときもログがすぐ書き出されるよう、行単位でバッファする
     setvbuf(stdout, nil, _IOLBF, 0)
-    print("no-more-gobaku: 起動しました（Ctrl+C で終了）")
+    print("kanahen: 起動しました（Ctrl+C で終了）")
     NSApplication.shared.setActivationPolicy(.prohibited)
     NSApplication.shared.run()
 

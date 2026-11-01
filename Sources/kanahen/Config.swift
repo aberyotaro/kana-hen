@@ -23,7 +23,7 @@ struct Config: Decodable {
     var japaneseInputSourceID: String?
 
     static let directory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".config/no-more-gobaku")
+        .appendingPathComponent(".config/kanahen")
 
     static func load() -> Config {
         let url = directory.appendingPathComponent("config.json")
@@ -31,7 +31,7 @@ struct Config: Decodable {
         do {
             return try JSONDecoder().decode(Config.self, from: data)
         } catch {
-            fputs("no-more-gobaku: \(url.path) を読めませんでした: \(error)\n", stderr)
+            fputs("kanahen: \(url.path) を読めませんでした: \(error)\n", stderr)
             exit(1)
         }
     }

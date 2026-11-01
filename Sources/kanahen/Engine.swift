@@ -218,6 +218,6 @@ final class Engine {
     }
 
     private func log(_ message: String) {
-        if verbose { print("no-more-gobaku: \(message)") }
+        if verbose { print("kanahen: \(message)") }
     }
 }
