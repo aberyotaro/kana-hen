@@ -25,11 +25,11 @@ clone して `install.sh` を実行します。ビルド、テスト、`~/.local
 ログイン時に起動する LaunchAgent の設定までを行います。
 
 ```bash
-git clone https://github.com/aberyotaro/kanahen.git
+git clone https://github.com/aberyotaro/kana-hen.git
 ```
 
 ```bash
-cd kanahen && scripts/install.sh
+cd kana-hen && scripts/install.sh
 ```
 
 初回は、アクセシビリティの許可がないため起動できずに終わります。
@@ -54,17 +54,6 @@ git pull && scripts/install.sh
 キーチェーンにコード署名用の証明書 `kanahen-dev` を作っておくと、`install.sh` がそれで署名するので、
 更新しても許可が外れなくなります。キーチェーンアクセス > 証明書アシスタント > 証明書を作成 で、
 固有名の種類を「自己署名ルート」、証明書のタイプを「コード署名」にして作ります。
-
-### 旧名 no-more-gobaku からの移行
-
-`scripts/install.sh` は、起動中の LaunchAgent `local.no-more-gobaku` を止め、
-`~/Library/LaunchAgents/local.no-more-gobaku.plist` と `~/.local/bin/no-more-gobaku` を削除します。
-`~/.config/no-more-gobaku` は、`~/.config/kanahen` がまだ無いときだけそこへ移します。
-
-バイナリのパスが変わるため、アクセシビリティの許可は引き継がれません。
-システム設定 > プライバシーとセキュリティ > アクセシビリティ で古い no-more-gobaku を「−」で削除し、
-「＋」から ⌘+Shift+G で `~/.local/bin/kanahen` を追加してオンにしてください。
-コード署名用の証明書を使っていた場合は、同じ手順で名前を `kanahen-dev` にして作り直します。
 
 ### アンインストール
 
