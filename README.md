@@ -1,4 +1,4 @@
-# no-more-gobaku
+# kanahen（かな変）
 
 英数モードのまま日本語をローマ字で打ってしまったとき、Enter を押した時点でそれを検出し、
 かな入力に切り替えて打ち直す macOS 用の常駐プログラムです。
@@ -25,20 +25,20 @@ clone して `install.sh` を実行します。ビルド、テスト、`~/.local
 ログイン時に起動する LaunchAgent の設定までを行います。
 
 ```bash
-git clone https://github.com/aberyotaro/no-more-gobaku.git
+git clone https://github.com/aberyotaro/kanahen.git
 ```
 
 ```bash
-cd no-more-gobaku && scripts/install.sh
+cd kanahen && scripts/install.sh
 ```
 
 初回は、アクセシビリティの許可がないため起動できずに終わります。
-システム設定 > プライバシーとセキュリティ > アクセシビリティ で no-more-gobaku をオンにしてください。
-一覧になければ「＋」を押し、⌘+Shift+G で `~/.local/bin/no-more-gobaku` を指定して追加します。
+システム設定 > プライバシーとセキュリティ > アクセシビリティ で kanahen をオンにしてください。
+一覧になければ「＋」を押し、⌘+Shift+G で `~/.local/bin/kanahen` を指定して追加します。
 許可したら次で起動します。
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/local.no-more-gobaku
+launchctl kickstart -k gui/$(id -u)/local.kanahen
 ```
 
 ### 更新
@@ -49,20 +49,31 @@ git pull && scripts/install.sh
 
 更新でバイナリが変わると、macOS は別のプログラムとみなし、アクセシビリティの許可が外れます
 （`install.sh` がその旨を表示します。変わらなければ入れ替えないので、許可は外れません）。
-そのときは、アクセシビリティで no-more-gobaku を「−」で削除し、「＋」で追加し直してから、上の `launchctl kickstart` を実行してください。
+そのときは、アクセシビリティで kanahen を「−」で削除し、「＋」で追加し直してから、上の `launchctl kickstart` を実行してください。
 
-キーチェーンにコード署名用の証明書 `no-more-gobaku-dev` を作っておくと、`install.sh` がそれで署名するので、
+キーチェーンにコード署名用の証明書 `kanahen-dev` を作っておくと、`install.sh` がそれで署名するので、
 更新しても許可が外れなくなります。キーチェーンアクセス > 証明書アシスタント > 証明書を作成 で、
 固有名の種類を「自己署名ルート」、証明書のタイプを「コード署名」にして作ります。
+
+### 旧名 no-more-gobaku からの移行
+
+`scripts/install.sh` は、起動中の LaunchAgent `local.no-more-gobaku` を止め、
+`~/Library/LaunchAgents/local.no-more-gobaku.plist` と `~/.local/bin/no-more-gobaku` を削除します。
+`~/.config/no-more-gobaku` は、`~/.config/kanahen` がまだ無いときだけそこへ移します。
+
+バイナリのパスが変わるため、アクセシビリティの許可は引き継がれません。
+システム設定 > プライバシーとセキュリティ > アクセシビリティ で古い no-more-gobaku を「−」で削除し、
+「＋」から ⌘+Shift+G で `~/.local/bin/kanahen` を追加してオンにしてください。
+コード署名用の証明書を使っていた場合は、同じ手順で名前を `kanahen-dev` にして作り直します。
 
 ### アンインストール
 
 ```bash
-launchctl bootout gui/$(id -u)/local.no-more-gobaku
+launchctl bootout gui/$(id -u)/local.kanahen
 ```
 
 ```bash
-rm ~/.local/bin/no-more-gobaku ~/Library/LaunchAgents/local.no-more-gobaku.plist ~/Library/Logs/no-more-gobaku.log
+rm ~/.local/bin/kanahen ~/Library/LaunchAgents/local.kanahen.plist ~/Library/Logs/kanahen.log
 ```
 
 アクセシビリティの一覧からも「−」で削除してください。
@@ -99,33 +110,33 @@ rm ~/.local/bin/no-more-gobaku ~/Library/LaunchAgents/local.no-more-gobaku.plist
 ## コマンド
 
 ```bash
-no-more-gobaku check kyouhaiitenkidesune "go home" database
+kanahen check kyouhaiitenkidesune "go home" database
 ```
 
 判定だけを試します。引数がなければ標準入力を 1 行ずつ判定します。
 
 ```bash
-no-more-gobaku sources
+kanahen sources
 ```
 
 有効な入力ソースと、今の入力ソースを英数とみなすかを表示します。
 
 ```bash
-no-more-gobaku probe 5
+kanahen probe 5
 ```
 
 5 秒後に前面にある入力欄を読めるかを調べます（文字数とカーソル位置だけを表示します）。
-許可を持つのは no-more-gobaku 本体なので、ターミナルから実行すると読めないことがあります。
+許可を持つのは kanahen 本体なので、ターミナルから実行すると読めないことがあります。
 
 ```bash
-no-more-gobaku run -v
+kanahen run -v
 ```
 
 常駐します。`-v` を付けると、変換した文字列と、変換しなかった理由を表示します。
 
 ## 設定
 
-`~/.config/no-more-gobaku/config.json`（任意。書いた項目だけが上書きされます）
+`~/.config/kanahen/config.json`（任意。書いた項目だけが上書きされます）
 
 ```json
 {
@@ -149,7 +160,7 @@ no-more-gobaku run -v
 
 アプリの bundle ID は `osascript -e 'id of app "Claude"'` で調べられます。
 
-変換してほしくない語は `~/.config/no-more-gobaku/words.txt` に 1 行 1 語で書きます（`#` はコメント）。
+変換してほしくない語は `~/.config/kanahen/words.txt` に 1 行 1 語で書きます（`#` はコメント）。
 
 ## 開発
 
