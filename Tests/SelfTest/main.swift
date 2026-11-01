@@ -104,6 +104,33 @@ do {
     expect(b.text == "cdef", "buffer backspace: \(b.text)")
 }
 
+do {
+    let t0 = Date()
+    var b = InputBuffer(idleLimit: 30)
+    for c in "kyou" { b.append(c, at: t0) }
+    b.append("h", at: t0.addingTimeInterval(29))
+    expect(b.text == "kyouh", "buffer keeps text within idle limit: \(b.text)")
+    b.append("a", at: t0.addingTimeInterval(29 + 31))
+    expect(b.text == "a", "buffer drops text after idle limit: \(b.text)")
+}
+
+// 消してよいのは、消す文字列がカーソル直前にあって選択がないときだけ
+do {
+    let field = FocusedText(text: "hello kyouha", caret: 12, selectionLength: 0)
+    expect(field.endsAtCaret(with: "kyouha"), "caret suffix matches")
+    expect(!field.endsAtCaret(with: "kyouhb"), "different text must not match")
+    expect(!FocusedText(text: "hello kyouha", caret: 12, selectionLength: 3).endsAtCaret(with: "kyouha"),
+           "selection left by autocomplete must not match")
+    expect(!FocusedText(text: "kyouha world", caret: 12, selectionLength: 0).endsAtCaret(with: "kyouha"),
+           "text elsewhere in the field must not match")
+    expect(FocusedText(text: "kyouha world", caret: 6, selectionLength: 0).endsAtCaret(with: "kyouha"),
+           "caret in the middle of the field")
+    expect(!FocusedText(text: "ha", caret: 2, selectionLength: 0).endsAtCaret(with: "kyouha"),
+           "field shorter than typed text must not match")
+    expect(FocusedText(text: "絵文字😀 desu", caret: 10, selectionLength: 0).endsAtCaret(with: "desu"),
+           "caret is in UTF-16 units")
+}
+
 if failures == 0 {
     print("OK")
 } else {

@@ -1,22 +1,56 @@
+import Foundation
+
 /// 英数モードで打たれた文字を、カーソル位置が変わるまで溜めておく。
 public struct InputBuffer {
     public private(set) var text = ""
     let limit: Int
+    /// これより長く入力が途切れたら、フォーカスが移った可能性があるので捨てる
+    let idleLimit: TimeInterval
+    private var lastInput: Date?
 
-    public init(limit: Int = 256) {
+    public init(limit: Int = 256, idleLimit: TimeInterval = 30) {
         self.limit = limit
+        self.idleLimit = idleLimit
     }
 
-    public mutating func append(_ c: Character) {
+    public mutating func append(_ c: Character, at now: Date = Date()) {
+        if let last = lastInput, now.timeIntervalSince(last) > idleLimit { text = "" }
+        lastInput = now
         text.append(c)
         if text.count > limit { text.removeFirst(text.count - limit) }
     }
 
-    public mutating func backspace() {
+    public mutating func backspace(at now: Date = Date()) {
+        lastInput = now
         if !text.isEmpty { text.removeLast() }
     }
 
     public mutating func reset() {
         text = ""
+        lastInput = nil
+    }
+}
+
+/// フォーカス中の入力欄の状態。位置と長さは UTF-16 単位（アクセシビリティ API と同じ）
+public struct FocusedText: Equatable {
+    public var text: String
+    public var caret: Int
+    public var selectionLength: Int
+
+    public init(text: String, caret: Int, selectionLength: Int) {
+        self.text = text
+        self.caret = caret
+        self.selectionLength = selectionLength
+    }
+
+    /// 消そうとしている文字列がカーソルの直前にあり、選択範囲がないときだけ true。
+    /// 記録と入力欄がずれているとき（補完で選択が残っている、フォーカスが移ったなど）に、
+    /// 打っていない文字を Backspace で消さないための確認
+    public func endsAtCaret(with typed: String) -> Bool {
+        guard selectionLength == 0 else { return false }
+        let utf16 = Array(text.utf16)
+        let typed16 = Array(typed.utf16)
+        guard caret >= typed16.count, caret <= utf16.count else { return false }
+        return Array(utf16[(caret - typed16.count)..<caret]) == typed16
     }
 }

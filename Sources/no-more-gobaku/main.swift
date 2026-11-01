@@ -6,6 +6,7 @@ let usage = """
   no-more-gobaku [run] [-v]     常駐して、英数モードの Enter で誤入力を判定・変換する
   no-more-gobaku check <文字列>... 判定だけを試す（引数がなければ標準入力を 1 行ずつ）
   no-more-gobaku sources        有効な入力ソースの ID を一覧する
+  no-more-gobaku probe [秒]     指定秒後（既定 5）に前面の入力欄を読めるか調べる（中身は表示しない）
 """
 
 func makeDetector(_ config: Config) -> Detector {
@@ -61,6 +62,18 @@ case "sources":
         print(InputSource.isKanaMode(id) ? "* \(id)" : "  \(id)")
     }
     print("\n(* は切り替え先の候補になるかな入力モード)")
+
+case "probe":
+    let seconds = args.first.flatMap(Double.init) ?? 5
+    Thread.sleep(forTimeInterval: seconds)
+    let app = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "不明"
+    print("trusted: \(AXIsProcessTrusted())  app: \(app)")
+    switch Accessibility.focusedText() {
+    case .success(let f):
+        print("ok: 文字数 \(f.text.utf16.count)  カーソル \(f.caret)  選択 \(f.selectionLength)")
+    case .failure(let e):
+        print("失敗: \(e)")
+    }
 
 default:
     print(usage)

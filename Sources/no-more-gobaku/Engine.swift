@@ -38,6 +38,8 @@ final class Engine {
 
     private var buffer = InputBuffer()
     private var converting = false
+    /// 変換中に届いた本物のキー。打ち直しより先に入らないよう溜めておき、打ち直しのあとに流す
+    private var heldDuringConversion: [CGEvent] = []
     private var tap: CFMachPort?
     private let eventSource = CGEventSource(stateID: .hidSystemState)
 
@@ -97,7 +99,11 @@ final class Engine {
     /// キーをそのまま通すなら true
     private func handleKeyDown(_ event: CGEvent) -> Bool {
         if event.getIntegerValueField(.eventSourceUserData) == syntheticMarker { return true }
-        if converting || isKanaMode() {
+        if converting {
+            if let copy = event.copy() { heldDuringConversion.append(copy) }
+            return false
+        }
+        if isKanaMode() {
             buffer.reset()
             return true
         }
@@ -153,6 +159,18 @@ final class Engine {
             log("日本語の入力ソースが見つからないため変換しません")
             return false
         }
+        // 記録と入力欄がずれていると、打っていない文字まで Backspace で消してしまう。
+        // 読めない欄（アクセシビリティ情報を出さないアプリ）は確認できないので従来どおり進める
+        let typed = String(text.suffix(judgment.deleteCount))
+        switch Accessibility.focusedText() {
+        case .success(let field):
+            guard field.endsAtCaret(with: typed) else {
+                log("Enter: 入力欄の内容が記録と一致しないため変換しません")
+                return false
+            }
+        case .failure(let error):
+            log("Enter: 入力欄を確認できないまま変換します（\(error)）")
+        }
         log("\(judgment.romaji) → \(judgment.kana)")
 
         converting = true
@@ -166,9 +184,24 @@ final class Engine {
                     if let (code, shift) = Key.codes[c] { post(code, shift: shift) }
                 }
                 converting = false
+                replayHeldKeys()
             }
         }
         return true
+    }
+
+    private func replayHeldKeys() {
+        let held = heldDuringConversion
+        heldDuringConversion = []
+        for down in held {
+            down.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
+            down.post(tap: .cghidEventTap)
+            // 本物の keyUp は握りつぶした keyDown より先にアプリへ届いているので、対になる keyUp を送り直す
+            if let up = down.copy() {
+                up.type = .keyUp
+                up.post(tap: .cghidEventTap)
+            }
+        }
     }
 
     private func post(_ code: CGKeyCode, shift: Bool = false) {
