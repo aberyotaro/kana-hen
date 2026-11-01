@@ -62,12 +62,17 @@ case "sources":
         print(InputSource.isKanaMode(id) ? "* \(id)" : "  \(id)")
     }
     print("\n(* は切り替え先の候補になるかな入力モード)")
+    print("今の入力ソースは\(InputSource.isCurrentASCII() ? "英数とみなす（判定の対象）" : "英数とみなさない（何もしない）")")
 
 case "probe":
     let seconds = args.first.flatMap(Double.init) ?? 5
     Thread.sleep(forTimeInterval: seconds)
-    let app = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "不明"
-    print("trusted: \(AXIsProcessTrusted())  app: \(app)")
+    let front = NSWorkspace.shared.frontmostApplication
+    print("trusted: \(AXIsProcessTrusted())  app: \(front?.bundleIdentifier ?? "不明")")
+    if let front {
+        Accessibility.prepare(front.processIdentifier)
+        Thread.sleep(forTimeInterval: 0.5)
+    }
     switch Accessibility.focusedText() {
     case .success(let f):
         print("ok: 文字数 \(f.text.utf16.count)  カーソル \(f.caret)  選択 \(f.selectionLength)")

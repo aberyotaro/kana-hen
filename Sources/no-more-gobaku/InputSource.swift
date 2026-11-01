@@ -6,8 +6,16 @@ enum InputSource {
         return Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
     }
 
-    static func currentID() -> String? {
-        id(of: TISCopyCurrentKeyboardInputSource().takeRetainedValue())
+    /// 今の入力が英数（キーを押した文字がそのまま入る）かどうか。
+    /// 「かなでなければ英数」とすると、カタカナや中国語入力の確定の Enter まで横取りしてしまうので、
+    /// キーボード配列そのもの（ABC など）と、日本語入力の英数モード（ID が .Roman で終わる）に限る
+    static func isCurrentASCII() -> Bool {
+        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
+        if let ptr = TISGetInputSourceProperty(source, kTISPropertyInputSourceType),
+           Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() == kTISTypeKeyboardLayout {
+            return true
+        }
+        return id(of: source)?.hasSuffix(".Roman") ?? false
     }
 
     /// ひらがな（かな）入力のモードかどうか。ことえり・Google 日本語入力・ATOK の ID に対応する

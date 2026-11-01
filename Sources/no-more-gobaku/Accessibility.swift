@@ -16,8 +16,16 @@ enum FocusedTextError: Error, CustomStringConvertible {
 }
 
 enum Accessibility {
-    /// 前面アプリのフォーカス中の入力欄を読む。Electron 製のアプリは、
-    /// AXManualAccessibility を立てるまでアクセシビリティ情報を公開しないので、失敗したら一度だけ立てて読み直す
+    /// Electron 製のアプリは AXManualAccessibility を立てるまでアクセシビリティ情報を公開せず、
+    /// 立てた直後の問い合わせにも答えない。前面に来た時点で立てておき、Enter の時点では読めるようにする。
+    /// Electron 以外のアプリはこの属性を無視する
+    static func prepare(_ pid: pid_t) {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.2)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+
+    /// 前面アプリのフォーカス中の入力欄を読む
     static func focusedText() -> Result<FocusedText, FocusedTextError> {
         guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else {
             return .failure(.noFocusedElement(.failure))
@@ -25,12 +33,7 @@ enum Accessibility {
         let app = AXUIElementCreateApplication(pid)
         // キー監視のコールバック内で呼ぶので、応答の遅いアプリで監視が止まらないよう待ち時間を短くする
         AXUIElementSetMessagingTimeout(app, 0.2)
-        var result = read(app)
-        if case .failure(.noFocusedElement) = result {
-            AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-            result = read(app)
-        }
-        return result
+        return read(app)
     }
 
     private static func read(_ app: AXUIElement) -> Result<FocusedText, FocusedTextError> {

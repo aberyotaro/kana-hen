@@ -38,6 +38,7 @@ final class Engine {
 
     private var buffer = InputBuffer()
     private var converting = false
+    private var enabledForFrontApp = true
     /// 変換中に届いた本物のキー。打ち直しより先に入らないよう溜めておき、打ち直しのあとに流す
     private var heldDuringConversion: [CGEvent] = []
     private var tap: CFMachPort?
@@ -69,17 +70,24 @@ final class Engine {
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        // 前面アプリが変わったらカーソル位置が分からなくなる
+        frontAppChanged(NSWorkspace.shared.frontmostApplication)
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.buffer.reset() }
+        ) { [weak self] note in
+            self?.frontAppChanged(note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)
+        }
         return true
     }
 
-    /// 入力モードは変更通知だと取りこぼすことがあるため、キーごとに問い合わせる（数 µs）
-    private func isKanaMode() -> Bool {
-        InputSource.currentID().map(InputSource.isKanaMode) ?? false
+    private func frontAppChanged(_ app: NSRunningApplication?) {
+        // 前面アプリが変わったらカーソル位置が分からなくなる
+        buffer.reset()
+        // 対象外のアプリ（ターミナルなど）では、打った文字を記録しない
+        enabledForFrontApp = config.isEnabled(for: app?.bundleIdentifier)
+        // Electron 製アプリは最初の問い合わせで入力欄を返さないので、Enter より前に準備させておく
+        if enabledForFrontApp, let app { Accessibility.prepare(app.processIdentifier) }
     }
+
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         let pass = Unmanaged.passUnretained(event)
@@ -103,7 +111,8 @@ final class Engine {
             if let copy = event.copy() { heldDuringConversion.append(copy) }
             return false
         }
-        if isKanaMode() {
+        // 入力モードは変更通知だと取りこぼすことがあるため、キーごとに問い合わせる
+        if !enabledForFrontApp || !InputSource.isCurrentASCII() {
             buffer.reset()
             return true
         }
@@ -142,11 +151,6 @@ final class Engine {
     private func tryConvert(_ text: String) -> Bool {
         guard !text.isEmpty else {
             log("Enter: 英数モードで打った文字がないため何もしません")
-            return false
-        }
-        let app = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        guard config.isEnabled(for: app) else {
-            log("Enter: \(app ?? "不明なアプリ") では無効にしています")
             return false
         }
         let judgment = detector.judge(text)

@@ -35,6 +35,8 @@ public final class Detector {
         "deno", "rebase", "goroutine", "tokenize", "memoize", "demo", "promo", "techno",
         "pesto", "github", "gitlab", "golang", "docker", "python", "javascript",
         "typescript", "slack", "claude", "iphone", "macos", "linux", "json", "yaml", "howto",
+        // チャットでよく打つ口語。辞書にないうえ、ローマ字としても読めてしまう
+        "haha", "hahaha", "hehe", "meme", "gonna", "wanna", "kinda", "gotta", "sorta", "emo",
     ]
 
     /// 英単語とみなすか。辞書にない複合語（database, runtime）や -tion 語も英語として扱う
@@ -80,7 +82,15 @@ public final class Detector {
             var start = i
             while start > 0, chars[start - 1] != " " { start -= 1 }
             let word = String(chars[start..<i])
-            guard word.contains(where: \.isLetter), let kana = Romaji.toKana(word) else {
+            // "kyouha ?" の "?" のように記号だけの語は、ローマ字の語に挟まれていれば一緒に打ち直す
+            if !word.contains(where: \.isLetter), let kana = Romaji.toKana(word) {
+                tokens.append((start, word, kana))
+                if start == 0 { break }
+                i = start
+                while i > 0, chars[i - 1] == " " { i -= 1 }
+                continue
+            }
+            guard let kana = Romaji.toKana(word) else {
                 // "repositoryha" のような「英単語＋助詞」なら助詞の部分だけを拾う
                 if let split = splitParticle(word) {
                     tokens.append((start + split.offset, split.suffix, split.kana))
@@ -93,6 +103,8 @@ public final class Detector {
             i = start
             while i > 0, chars[i - 1] == " " { i -= 1 }
         }
+        // 先頭側に残った記号だけの語は、前の英文に属するので打ち直さない
+        while let earliest = tokens.last, !earliest.word.contains(where: \.isLetter) { tokens.removeLast() }
 
         guard let first = tokens.last else {
             return Judgment(convert: false, romaji: "", kana: "", deleteCount: 0, reason: "ローマ字ではない")

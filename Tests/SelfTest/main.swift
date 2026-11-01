@@ -88,6 +88,22 @@ for (input, romaji, kana) in particleCases {
     expect(j.deleteCount == typedSuffix.count, "particle deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
+// 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
+do {
+    let j = detector.judge("kyouha ?")
+    expect(j.convert && j.romaji == "kyouha?" && j.kana == "きょうは？" && j.deleteCount == "kyouha ?".count,
+           "trailing punctuation token: \(j)")
+    let k = detector.judge("OK ? sounandesune")
+    expect(k.convert && k.romaji == "sounandesune" && k.deleteCount == "sounandesune".count,
+           "leading punctuation token stays: \(k)")
+    expect(!detector.judge("OK ?").convert, "punctuation alone must not convert")
+}
+
+for input in ["meme", "haha", "lol hahaha", "gonna", "wanna", "kinda", "gotta"] {
+    let j = detector.judge(input)
+    expect(!j.convert, "chat slang must not convert \(input.debugDescription): \(j.romaji) → \(j.kana)")
+}
+
 // 英単語の一部が助詞に見えても分割しない
 for input in ["machine", "release", "panda", "undone", "homemade", "Canada", "Toronto",
               "techno", "promo", "online", "lambda", "URLencode", "227line", "createfilemode",
