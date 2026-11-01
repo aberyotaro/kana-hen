@@ -1,0 +1,112 @@
+import Foundation
+import GobakuCore
+
+var failures = 0
+func expect(_ ok: Bool, _ message: @autoclosure () -> String) {
+    if !ok {
+        failures += 1
+        print("FAIL: \(message())")
+    }
+}
+
+let detector = Detector(englishWords: Detector.loadEnglishWords(paths: ["/usr/share/dict/words"]))
+
+let kanaCases: [(String, String)] = [
+    ("kyouhaiitenkidesune", "きょうはいいてんきですね"),
+    ("konnnichiha", "こんにちは"),
+    ("matcha", "まっちゃ"),
+    ("shinbun", "しんぶん"),
+    ("kanzi", "かんじ"),
+    ("konya", "こにゃ"),
+    ("konnya", "こんや"),
+    ("sounandesune.", "そうなんですね。"),
+    ("nanisore?", "なにそれ？"),
+    ("ra-men", "らーめん"),
+]
+for (input, kana) in kanaCases {
+    let got = Romaji.toKana(input)
+    expect(got == kana, "toKana(\(input)) = \(got ?? "nil"), want \(kana)")
+}
+
+for input in ["hello", "code", "think", "test", "kubernetes", "akk", "API", "lake"] {
+    expect(Romaji.toKana(input) == nil, "toKana(\(input)) should be nil")
+}
+
+// 日本語のつもりで英数モードのまま打ちそうな文
+let japanese = [
+    "kyouhaiitenkidesune", "arigatou", "arigatougozaimasu", "yoroshikuonegaishimasu",
+    "sounandesune", "nanisore?", "matcha", "ikimasu", "sorede", "genkidesuka",
+    "watashihatanakadesu", "kyouha tenki", "ashitanokaigi", "kakuninshimasu",
+    "shiyouwokakunin", "tesutogaotiteru", "mendoukusai", "tabun", "chottomatte",
+    "nihongo", "sumimasen", "otsukaresamadesu", "shinkansen",
+    "korehananidesuka", "doumodesu", "daijoubu", "naruhodo", "ryoukaidesu",
+]
+for input in japanese {
+    let j = detector.judge(input)
+    expect(j.convert, "should convert \(input.debugDescription): \(j.reason)")
+}
+
+// 英数モードで正しく打った英語は変換しない
+let english = [
+    "Thanks for the update", "see you tomorrow", "go home", "same", "made", "taken",
+    "this is fine", "anime", "here", "women", "domain", "hidden", "notion", "sure",
+    "hope so", "database", "metadata", "runtime", "basename", "automation", "info",
+    "repo", "todo", "sudo", "manpage", "tokenization", "configuration", "hai", "ok go",
+]
+for input in english {
+    let j = detector.judge(input)
+    expect(!j.convert, "should not convert \(input.debugDescription): \(j.romaji) → \(j.kana)")
+}
+
+do {
+    let j = detector.judge("OK, kyouha tenki ")
+    expect(j.convert && j.romaji == "kyouhatenki", "multi-token: \(j)")
+    expect(j.deleteCount == "kyouha tenki ".count, "multi-token deleteCount: \(j.deleteCount)")
+}
+do {
+    let j = detector.judge("I said sounandesune")
+    expect(j.convert && j.deleteCount == "sounandesune".count, "keeps preceding English: \(j)")
+}
+
+// 英単語＋助詞は助詞の部分だけを変換する
+let particleCases: [(String, String, String)] = [
+    ("git repositoryha", "ha", "は"),
+    ("testdesu", "desu", "です"),
+    ("APIga", "ga", "が"),
+    ("GitHubdesuka?", "desuka?", "ですか？"),
+    ("dockerttedesune", "ttedesune", "ってですね"),
+    ("v2toka", "toka", "とか"),
+    ("githubha", "ha", "は"),
+    ("updateshitai", "shitai", "したい"),
+    ("repositoryha tsukaeru?", "hatsukaeru?", "はつかえる？"),
+]
+for (input, romaji, kana) in particleCases {
+    let j = detector.judge(input)
+    expect(j.convert && j.romaji == romaji && j.kana == kana,
+           "particle \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
+    let typedSuffix = input.hasSuffix("tsukaeru?") ? "ha tsukaeru?" : romaji
+    expect(j.deleteCount == typedSuffix.count, "particle deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
+// 英単語の一部が助詞に見えても分割しない
+for input in ["machine", "release", "panda", "undone", "homemade", "Canada", "Toronto",
+              "techno", "promo", "online", "lambda", "URLencode", "227line", "createfilemode",
+              "howto", "httpsExampleGuide"] {
+    let j = detector.judge(input)
+    expect(!j.convert, "should not split \(input.debugDescription): \(j.romaji) → \(j.kana)")
+}
+
+do {
+    var b = InputBuffer(limit: 5)
+    for c in "abcdefg" { b.append(c) }
+    expect(b.text == "cdefg", "buffer limit: \(b.text)")
+    b.backspace()
+    expect(b.text == "cdef", "buffer backspace: \(b.text)")
+}
+
+if failures == 0 {
+    print("OK")
+} else {
+    print("\(failures) failure(s)")
+    exit(1)
+}
