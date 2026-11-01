@@ -1,131 +1,96 @@
 # kana-hen
 
-英数モードのまま日本語をローマ字で打ってしまったとき、Enter を押した時点でそれを検出し、
-かな入力に切り替えて打ち直す macOS 用の常駐プログラムです。
+英数モードで打ったローマ字を、Enter でかな入力に打ち直す macOS の常駐プログラムです。Enter は送信されません。
 
-```
-英数モードで "kyouhaiitenkidesune" と打って Enter
-  → Enter は送信されず、文字が消えて日本語入力に切り替わり、
-    「きょうはいいてんきですね」が変換待ちの状態になる
-```
+`kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語＋助詞（`repositoryha`）は助詞だけを打ち直し、「repositoryは」になります。
 
-チャット欄で英数モードのまま Enter を押してしまい、誤送信する問題の対策も兼ねています。
-`repositoryha` のような「英単語＋助詞」は、助詞の部分だけを打ち直して「repositoryは」にします。
+打った文字はネットワークへ送りません。Enter で判定するまでメモリ上に最大 256 文字だけ持ち、`-v` で起動したときだけ変換結果をログに出します。
 
-## インストール
+## 必要なもの
 
-macOS 13 以降と、Swift をビルドできる環境（Command Line Tools）が必要です。
-入っていなければ次で入れます。
+macOS 13 以降と、Swift をビルドできる環境（Command Line Tools）です。無ければ次で入れます。
 
 ```bash
 xcode-select --install
 ```
 
-clone して `install.sh` を実行します。ビルド、テスト、`~/.local/bin` への配置、
-ログイン時に起動する LaunchAgent の設定までを行います。
+## インストール
 
 ```bash
 git clone https://github.com/aberyotaro/kana-hen.git
+cd kana-hen
 ```
+
+更新でバイナリが変わってもアクセシビリティの許可を残したいときは、先にコード署名用の証明書 `kanahen-dev` を作ります。キーチェーンアクセス > 証明書アシスタント > 証明書を作成 で、固有名の種類を「自己署名ルート」、証明書のタイプを「コード署名」にします。別の名前にするときは `KANAHEN_SIGN_IDENTITY` にその名前を入れます。
 
 ```bash
-cd kana-hen && scripts/install.sh
+scripts/install.sh
 ```
 
-初回は、アクセシビリティの許可がないため起動できずに終わります。
-システム設定 > プライバシーとセキュリティ > アクセシビリティ で kanahen をオンにしてください。
-一覧になければ「＋」を押し、⌘+Shift+G で `~/.local/bin/kanahen` を指定して追加します。
+ビルドとテストのあと、`~/.local/bin/kanahen` に置き、ログイン時に起動する LaunchAgent `local.kanahen` を登録して起動します。ログは `~/Library/Logs/kanahen.log` です。
+
+初回は許可がないため起動できません。システム設定 > プライバシーとセキュリティ > アクセシビリティ で `~/.local/bin/kanahen` をオンにします。一覧になければ「＋」を押し、⌘+Shift+G でそのパスを指定します。入力監視を求められたら、同じバイナリをそこでも許可します。
+
 許可したら次で起動します。
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.kanahen
 ```
 
-### 更新
+更新は次です。
 
 ```bash
 git pull && scripts/install.sh
 ```
 
-更新でバイナリが変わると、macOS は別のプログラムとみなし、アクセシビリティの許可が外れます
-（`install.sh` がその旨を表示します。変わらなければ入れ替えないので、許可は外れません）。
-そのときは、アクセシビリティで kanahen を「−」で削除し、「＋」で追加し直してから、上の `launchctl kickstart` を実行してください。
+証明書が無く ad-hoc 署名のままバイナリが変わると、許可が外れます。アクセシビリティの一覧から kanahen を「−」で削除し、「＋」で `~/.local/bin/kanahen` を追加し直してから、上の `launchctl kickstart` を実行します。
 
-キーチェーンにコード署名用の証明書 `kanahen-dev` を作っておくと、`install.sh` がそれで署名するので、
-更新しても許可が外れなくなります。キーチェーンアクセス > 証明書アシスタント > 証明書を作成 で、
-固有名の種類を「自己署名ルート」、証明書のタイプを「コード署名」にして作ります。
-
-### アンインストール
+## アンインストール
 
 ```bash
-launchctl bootout gui/$(id -u)/local.kanahen
+scripts/uninstall.sh
 ```
 
+読み込まれていれば `launchctl bootout gui/$(id -u)/local.kanahen` で止め、次を削除します。無いものは飛ばすので、何度実行してもよいです。
+
+- `~/Library/LaunchAgents/local.kanahen.plist`
+- `~/.local/bin/kanahen`
+- `~/.config/kanahen`
+- `~/Library/Logs/kanahen.log`
+
+システム設定 > プライバシーとセキュリティ > アクセシビリティ から kanahen を「−」で削除します。入力監視に入っていれば、そこからも削除します。
+
+## 使い方
+
+インストール後はログインのたびに起動します。判定や調査は `~/.local/bin/kanahen` を直接実行します。
+
 ```bash
-rm ~/.local/bin/kanahen ~/Library/LaunchAgents/local.kanahen.plist ~/Library/Logs/kanahen.log
+~/.local/bin/kanahen check kyouhaiitenkidesune "go home" database
 ```
 
-アクセシビリティの一覧からも「−」で削除してください。
-
-## プライバシー
-
-キー入力を監視するプログラムなので、扱うデータを明記します。
-
-- 打った文字は、Enter で判定するまでのあいだ、メモリ上に最大 256 文字だけ保持します。
-  クリック、矢印キー、アプリの切り替え、30 秒の無入力で捨てます。
-- 打った文字をファイルに保存したり、ネットワークへ送ったりはしません。
-- ターミナルなど対象外のアプリと、パスワード欄（Secure Input）では文字を保持しません。
-- `-v` を付けて起動したときだけ、変換した文字列をログに出力します。
-
-## 仕組み
-
-1. CGEventTap でキー入力を監視し、英数モード（ABC などの配列と、日本語入力の英数モード）で打った文字を溜める
-2. Enter（Shift なし）を押したら、末尾の文字列を判定する
-   - 全体をローマ字として解釈できる（スペース区切りの複数語も可）
-   - 英単語ではない（`/usr/share/dict/words` と組み込みの語、複合語、`-tion`/`-sion`）
-   - 4 文字以上
-3. アクセシビリティ API で入力欄を読み、消す予定の文字列がカーソルの直前にあって選択範囲がないことを確かめる。
-   一致しなければ何もしない。入力欄を読めないアプリでは確認せずに進む
-4. Enter を握りつぶし、Backspace で消して、かなキーで日本語入力に切り替えてから同じキーを打ち直す。
-   打ち直しが終わるまでに押されたキーは溜めておき、打ち直しのあとに同じ順で送る
-
-### 誤って変換されたとき
-
-変換待ちの状態で **F10** を押すと半角英数に戻せます（ことえり・Google 日本語入力とも）。
-そのあと Enter で確定してください。
-
-ローマ字のまま送りたいときは、Enter の前に ← → でカーソルを動かします。溜めた文字が捨てられ、判定されません。
-
-## コマンド
+引数がなければ標準入力を 1 行ずつ判定します。
 
 ```bash
-kanahen check kyouhaiitenkidesune "go home" database
-```
-
-判定だけを試します。引数がなければ標準入力を 1 行ずつ判定します。
-
-```bash
-kanahen sources
+~/.local/bin/kanahen sources
 ```
 
 有効な入力ソースと、今の入力ソースを英数とみなすかを表示します。
 
 ```bash
-kanahen probe 5
+~/.local/bin/kanahen probe 5
 ```
 
-5 秒後に前面にある入力欄を読めるかを調べます（文字数とカーソル位置だけを表示します）。
-許可を持つのは kanahen 本体なので、ターミナルから実行すると読めないことがあります。
+5 秒後に前面の入力欄が読めるかを調べます（文字数とカーソル位置だけ）。許可を持つのは常駐している kanahen なので、ターミナルからだと読めないことがあります。
 
 ```bash
-kanahen run -v
+~/.local/bin/kanahen run -v
 ```
 
-常駐します。`-v` を付けると、変換した文字列と、変換しなかった理由を表示します。
+常駐します。`-v` を付けると、変換した文字列と、変換しなかった理由を出します。
 
 ## 設定
 
-`~/.config/kanahen/config.json`（任意。書いた項目だけが上書きされます）
+`~/.config/kanahen/config.json` に書いた項目だけが既定値を上書きします。
 
 ```json
 {
@@ -140,37 +105,28 @@ kanahen run -v
 
 | 項目 | 意味 |
 |---|---|
-| `minLetters` | 変換の対象とする最小の文字数 |
-| `minJapaneseRatio` | 英単語でない語が占める文字数の割合の下限 |
-| `switchDelayMs` | 日本語入力に切り替えてから打ち直すまでの待ち時間。打ち直しが英字のまま入るなら増やす |
-| `enabledApps` | 指定するとそのアプリだけで動く（bundle ID）。空ならすべて |
-| `disabledApps` | 動かさないアプリ。省略時は主要なターミナルが入っている |
-| `japaneseInputSourceID` | この入力ソースが有効なときだけ変換する。省略時は何らかのかな入力があればよい。切り替え先はかなキーで決まる |
+| `minLetters` | 変換する最小文字数。既定は 4 |
+| `minJapaneseRatio` | 英単語でない語が占める文字数の割合の下限。既定は 0.5 |
+| `switchDelayMs` | かな入力に切り替えてから打ち直すまでの待ち時間（ミリ秒）。打ち直しが英字のまま入るなら増やす |
+| `enabledApps` | この bundle ID だけで動く。空ならすべてのアプリ |
+| `disabledApps` | 動かさない bundle ID。省略時は Terminal、iTerm2、Ghostty、Warp、kitty、WezTerm、Alacritty。書いた配列がそのまま使われ、既定の一覧には足されない |
+| `japaneseInputSourceID` | この入力ソースが有効なときだけ変換する。省略時はかな入力がどれかあればよい。切り替え先はかなキーで決まる |
 
-アプリの bundle ID は `osascript -e 'id of app "Claude"'` で調べられます。
+bundle ID は `osascript -e 'id of app "Claude"'` で分かります。
 
-変換してほしくない語は `~/.config/kanahen/words.txt` に 1 行 1 語で書きます（`#` はコメント）。
+変換しない語は `~/.config/kanahen/words.txt` に 1 行 1 語で書きます。`#` はコメントです。
 
-## 開発
+## うまくいかないとき
 
-```bash
-swift build -c release
-```
-
-```bash
-swift run -c release selftest
-```
-
-Command Line Tools だけでは XCTest と swift-testing が使えないため、テストは実行形式（`selftest`）にしています。
-
-## 既知の制限
-
-- 英単語 2 つに分けられる日本語は英語とみなされる（例: `kanamono` = kana + mono）
-- 辞書に載っている語と同じ綴りの日本語は変換されない（例: `same`, `made`, `sake`）
-- 文字を溜め始める前（クリックした位置より前）の文字は対象にならない
-- l/x による小書き文字、v 行、`th`/`dh` などの綴りは、英文の誤検出を避けるため受け付けない
-- 打ち直しは US 配列のキーコードで行うため、Dvorak などの配列では正しく打ち直せない
-- 大文字を含むローマ字（Caps Lock 中を含む）は、略語や人名との区別がつかないため変換しない
+- 起動しない、変換されない: アクセシビリティで `~/.local/bin/kanahen` がオンかを確認する。許可したあと `launchctl kickstart -k gui/$(id -u)/local.kanahen`
+- 更新のたびに許可が外れる: 証明書 `kanahen-dev` が無い。作ってから `scripts/install.sh` をやり直す。外れた項目は「−」で削除し、「＋」で追加し直す
+- 誤って変換した: 変換待ちのまま **F10** で半角英数に戻し、Enter で確定する（ことえり、Google 日本語入力）
+- ローマ字のまま送りたい: Enter の前に ← か → を押す。溜めた文字は捨てられ、判定しない。クリック、アプリの切り替え、30 秒の無入力でも捨てる。Shift+Enter は変換しない
+- パスワード欄では文字を保持しない
+- 打ち直しが英字のまま: `switchDelayMs` を増やす
+- ターミナルで動かない: 既定の `disabledApps` に入っている
+- 変換されない日本語: 4 文字未満、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない
+- US 配列以外（Dvorak など）: 打ち直しのキーコードが US 配列のため、正しく入らない
 
 ## ライセンス
 
