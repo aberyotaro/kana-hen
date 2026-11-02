@@ -41,6 +41,8 @@ public final class Detector {
 
     /// 英単語とみなすか。辞書にない複合語（database, runtime）や -tion 語も英語として扱う
     func isEnglish(_ word: String) -> Bool {
+        // ホストの辞書は OS で違う。web2 は shita を載せるが、語尾は日本語。
+        if Self.japaneseEndings.contains(word) { return false }
         if englishWords.contains(word) { return true }
         if word.contains("tion") || word.contains("sion") { return true }
 
@@ -150,6 +152,14 @@ public final class Detector {
         "-", ",", ".", "?", "!",
     ]
     static let maxParticleLength = particles.map(\.count).max()!
+
+    /// made / demo / nano は助詞表にもある英単語。
+    static let englishHomographParticles: Set<String> = ["made", "demo", "nano"]
+
+    /// 4 文字以上の助詞・語尾。to / no / ya は短いのでここには入らず、辞書の判定のまま。
+    static let japaneseEndings: Set<String> = Set(
+        particles.filter { $0.count >= 4 && $0.allSatisfy(\.isLetter) }
+    ).subtracting(englishHomographParticles)
 
     static let bareSpacedParticles: Set<String> = [
         "ha", "ga", "wo", "ni", "de", "mo",
