@@ -2,7 +2,7 @@
 
 英数モードで打ったローマ字を、Enter でかな入力に打ち直す macOS の常駐プログラムです。変換するとき、その Enter はアプリに届きません。
 
-`kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語＋助詞（`repositoryha`）は助詞だけを打ち直し、「repositoryは」になります。
+`kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語の直後の助詞は助詞以降だけを打ち直します。`repositoryha` は「repositoryは」、`repository ha` は「repository は」、`repository ha ugokanai` は「repository はうごかない」です。`to`・`no`・`he`・`ya` は英語でも使うので、前の語が 10 文字以上か、`GitHub`・`API`・`v2` のように大文字や数字が混じるときだけ、助詞だけで終わっていても変換します。`made` は辞書にあるので、`repository made` も `repositorymade` も変換しません。
 
 打った文字はネットワークへ送りません。Enter で判定するまでメモリ上に最大 256 文字だけ持ち、`-v` で起動したときだけ変換結果をログに出します。
 
@@ -125,7 +125,8 @@ bundle ID は `osascript -e 'id of app "Claude"'` で分かります。
 - セキュア入力中は文字を溜めない。パスワード欄だと分かった Enter は変換しない
 - 打ち直しが英字のまま: `switchDelayMs` を増やす
 - ターミナルで動かない: 既定の `disabledApps` に入っている
-- 変換されない日本語: 4 文字未満、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない
+- 変換されない日本語: 4 文字未満（英単語の直後の助詞は除く）、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono、`repositorymade`）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない
+- 助詞より前にローマ字でない語があると、そこから先は残る。`PR wo merge shita` は「した」だけ、`Kubernetes no pod ga ochiru` は「がおちる」だけになる
 - US 配列以外（Dvorak など）: 打ち直しのキーコードが US 配列のため、正しく入らない
 
 ## ライセンス
