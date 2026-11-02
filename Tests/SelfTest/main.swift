@@ -148,10 +148,10 @@ for input in [
     expect(!j.convert, "english must stay \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
 }
 
-// macOS の /usr/share/dict/words（web2）には shita, kana, dane がある。Linux の wamerican にはない。
+// web2 には shita, kana, dane, nanda がある。wamerican には shita, kana, nanda がない。dane は両方にある。
 do {
     var words = Detector.loadEnglishWords(paths: ["/usr/share/dict/words"])
-    words.formUnion(["shita", "kana", "dane"])
+    words.formUnion(["shita", "kana", "dane", "merge", "repository", "mono", "mundane", "made"])
     let mac = Detector(englishWords: words)
     let shita = mac.judge("PR wo merge shita")
     expect(shita.convert && shita.romaji == "shita" && shita.kana == "した",
@@ -162,6 +162,14 @@ do {
     let dane = mac.judge("dane")
     expect(dane.convert && dane.kana == "だね", "dictionary dane still converts: \(dane.romaji) → \(dane.kana) [\(dane.reason)]")
     expect(!mac.judge("made").convert, "made stays English beside those endings")
+    for glued in ["mergeshita", "repositoryshita"] {
+        let j = mac.judge(glued)
+        expect(j.convert && j.romaji == "shita" && j.kana == "した",
+               "glued shita still converts \(glued): \(j.romaji) → \(j.kana) [\(j.reason)]")
+        expect(j.deleteCount == "shita".count, "glued shita deleteCount \(glued): \(j.deleteCount)")
+    }
+    expect(!mac.judge("mundane").convert, "mundane stays English")
+    expect(!mac.judge("kanamono").convert, "kanamono stays English")
 }
 
 // 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
