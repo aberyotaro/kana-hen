@@ -57,7 +57,7 @@ else
     if $signed; then
         codesign --force --sign "$identity" --identifier "$label" "$dest"
     else
-        echo "install.sh: 証明書「$identity」がないため ad-hoc 署名のまま入れました。" >&2
+        echo "install.sh: 証明書「${identity}」がないため ad-hoc 署名のまま入れました。" >&2
         echo "  アクセシビリティで kanahen を「−」で削除し、「＋」で $dest を追加し直してください。" >&2
     fi
 fi
