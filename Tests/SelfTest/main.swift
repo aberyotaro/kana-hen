@@ -99,11 +99,7 @@ let spacedParticleCases: [(String, String, String, String)] = [
     ("repository wo", "wo", "を", "wo"),
     ("repository ni", "ni", "に", "ni"),
     ("repository de", "de", "で", "de"),
-    ("repository no", "no", "の", "no"),
     ("repository mo", "mo", "も", "mo"),
-    ("repository to", "to", "と", "to"),
-    ("repository he", "he", "へ", "he"),
-    ("repository ya", "ya", "や", "ya"),
     ("repository kara", "kara", "から", "kara"),
     ("repository yori", "yori", "より", "yori"),
     ("repository dake", "dake", "だけ", "dake"),
@@ -122,11 +118,14 @@ let spacedParticleCases: [(String, String, String, String)] = [
     ("v2 no", "no", "の", "no"),
     ("API to", "to", "と", "to"),
     ("GitHub to", "to", "と", "to"),
+    ("GitHub no", "no", "の", "no"),
     ("Kubernetes ha", "ha", "は", "ha"),
-    ("Kubernetes no", "no", "の", "no"),
-    // pod はローマ字ではないので、その前の no は残し、末尾だけ変換する
+    // 助詞の後ろに日本語のローマ字が続けば、to/no も辞書語の直後で変換する
+    ("repository to onaji", "toonaji", "とおなじ", "to onaji"),
+    ("repository no hou", "nohou", "のほう", "no hou"),
+    // 打ち直しは末尾の連続したローマ字だけ。間の英単語は残せないので、その前の助詞は残る。
+    // 末尾まで変換しないと、Enter はそのまま送られる。
     ("Kubernetes no pod ga ochiru", "gaochiru", "がおちる", "ga ochiru"),
-    // merge はローマ字ではないので、wo は届かず shita だけ変換する
     ("PR wo merge shita", "shita", "した", "shita"),
 ]
 for (input, romaji, kana, deleting) in spacedParticleCases {
@@ -136,13 +135,19 @@ for (input, romaji, kana, deleting) in spacedParticleCases {
     expect(j.deleteCount == deleting.count, "spaced deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
-// 英文のまま残す。to / no / he は前の語が短い、または助詞の後ろが英単語なら変換しない
+// 英文のまま残す。to / no / he / ya は英単語なので、行末では技術用語の直後だけ変換する。
+// repository や introduction のような辞書語では変換しない。文字数では分かれない。
 for input in [
     "git push origin main", "to do", "no change", "go home", "a ha",
     "want to", "have to", "going to", "according to", "open to",
     "thanks to", "return to", "default to", "related to", "close to", "next to",
-    "say no", "and he", "see ya", "go to", "hand made", "custom made",
-    "repository to do", "repository ha home", "repository go", "repository do",
+    "introduction to", "commitment to", "configuration to", "implementation to",
+    "say no", "and he", "see ya", "absolutely no", "definitely no",
+    "go to", "hand made", "custom made",
+    "repository to", "repository no", "repository he", "repository ya",
+    "Kubernetes no", "Kubernetes to",
+    "repository to do", "repository ha home", "API to do",
+    "repository go", "repository do",
     "repository demo", "repository made", "repositorymade", "repositorydemo",
     "OK to", "PR to", "made",
 ] {
