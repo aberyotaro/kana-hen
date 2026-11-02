@@ -51,8 +51,10 @@ public final class Detector {
         let chars = Array(word)
         guard chars.count >= 7 else { return false }
         for split in 3...(chars.count - 4) {
+            let tail = String(chars[split...])
+            if Self.japaneseEndings.contains(tail) { continue }
             if englishWords.contains(String(chars[..<split])),
-               englishWords.contains(String(chars[split...])) {
+               englishWords.contains(tail) {
                 return true
             }
         }

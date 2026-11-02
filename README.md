@@ -125,7 +125,7 @@ bundle ID は `osascript -e 'id of app "Claude"'` で分かります。
 - セキュア入力中は文字を溜めない。パスワード欄だと分かった Enter は変換しない
 - 打ち直しが英字のまま: `switchDelayMs` を増やす
 - ターミナルで動かない: 既定の `disabledApps` に入っている
-- 変換されない日本語: 4 文字未満（英単語の直後の助詞は除く）、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono、`repositorymade`）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない
+- 変換されない日本語: 4 文字未満（英単語の直後の助詞は除く）、大文字を含む、辞書にある綴り（`same`、`made`、`sake`）、英単語 2 つに分けられるもの（`kanamono` = kana + mono、`repositorymade`）、l/x の小書き、v 行、`th` / `dh`。クリックより前の文字は対象にしない。`shita` のような 4 文字以上の語尾は辞書にあっても後ろで切る。`mergeshita` は「した」
 - 助詞より前にローマ字でない語があると、そこから先は残る。`PR wo merge shita` は「した」だけ、`Kubernetes no pod ga ochiru` は「がおちる」だけになる
 - US 配列以外（Dvorak など）: 打ち直しのキーコードが US 配列のため、正しく入らない
 
