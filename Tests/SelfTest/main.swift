@@ -148,6 +148,22 @@ for input in [
     expect(!j.convert, "english must stay \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
 }
 
+// macOS の /usr/share/dict/words（web2）には shita, kana, dane がある。Linux の wamerican にはない。
+do {
+    var words = Detector.loadEnglishWords(paths: ["/usr/share/dict/words"])
+    words.formUnion(["shita", "kana", "dane"])
+    let mac = Detector(englishWords: words)
+    let shita = mac.judge("PR wo merge shita")
+    expect(shita.convert && shita.romaji == "shita" && shita.kana == "した",
+           "dictionary shita still converts: \(shita.romaji) → \(shita.kana) [\(shita.reason)]")
+    expect(shita.deleteCount == "shita".count, "dictionary shita deleteCount: \(shita.deleteCount)")
+    let kana = mac.judge("kana")
+    expect(kana.convert && kana.kana == "かな", "dictionary kana still converts: \(kana.romaji) → \(kana.kana) [\(kana.reason)]")
+    let dane = mac.judge("dane")
+    expect(dane.convert && dane.kana == "だね", "dictionary dane still converts: \(dane.romaji) → \(dane.kana) [\(dane.reason)]")
+    expect(!mac.judge("made").convert, "made stays English beside those endings")
+}
+
 // 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
 do {
     let j = detector.judge("kyouha ?")
