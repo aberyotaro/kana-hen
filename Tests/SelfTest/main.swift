@@ -79,6 +79,10 @@ let particleCases: [(String, String, String)] = [
     ("githubha", "ha", "は"),
     ("updateshitai", "shitai", "したい"),
     ("repositoryha tsukaeru?", "hatsukaeru?", "はつかえる？"),
+    // 空白ありと同じ助詞を、空白なしでも助詞だけ変換する。made は辞書語との複合になるのでここには入れない
+    ("repositoryto", "to", "と"),
+    ("repositoryno", "no", "の"),
+    ("repositorytoka", "toka", "とか"),
 ]
 for (input, romaji, kana) in particleCases {
     let j = detector.judge(input)
@@ -86,6 +90,64 @@ for (input, romaji, kana) in particleCases {
            "particle \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
     let typedSuffix = input.hasSuffix("tsukaeru?") ? "ha tsukaeru?" : romaji
     expect(j.deleteCount == typedSuffix.count, "particle deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
+// 空白のあとが助詞だけで終わっていても変換する。後ろにローマ字は要らない
+let spacedParticleCases: [(String, String, String, String)] = [
+    ("repository ha", "ha", "は", "ha"),
+    ("repository ga", "ga", "が", "ga"),
+    ("repository wo", "wo", "を", "wo"),
+    ("repository ni", "ni", "に", "ni"),
+    ("repository de", "de", "で", "de"),
+    ("repository no", "no", "の", "no"),
+    ("repository mo", "mo", "も", "mo"),
+    ("repository to", "to", "と", "to"),
+    ("repository he", "he", "へ", "he"),
+    ("repository ya", "ya", "や", "ya"),
+    ("repository kara", "kara", "から", "kara"),
+    ("repository yori", "yori", "より", "yori"),
+    ("repository dake", "dake", "だけ", "dake"),
+    ("repository nara", "nara", "なら", "nara"),
+    ("repository toka", "toka", "とか", "toka"),
+    ("repository ha?", "ha?", "は？", "ha?"),
+    ("git repository ha", "ha", "は", "ha"),
+    ("repository ha ugokanai", "haugokanai", "はうごかない", "ha ugokanai"),
+    ("code wo", "wo", "を", "wo"),
+    ("test ga", "ga", "が", "ga"),
+    ("bug de", "de", "で", "de"),
+    ("file ni", "ni", "に", "ni"),
+    ("PR wo", "wo", "を", "wo"),
+    ("API ga", "ga", "が", "ga"),
+    ("v2 ni", "ni", "に", "ni"),
+    ("v2 no", "no", "の", "no"),
+    ("API to", "to", "と", "to"),
+    ("GitHub to", "to", "と", "to"),
+    ("Kubernetes ha", "ha", "は", "ha"),
+    ("Kubernetes no", "no", "の", "no"),
+    // pod はローマ字ではないので、その前の no は残し、末尾だけ変換する
+    ("Kubernetes no pod ga ochiru", "gaochiru", "がおちる", "ga ochiru"),
+    // merge はローマ字ではないので、wo は届かず shita だけ変換する
+    ("PR wo merge shita", "shita", "した", "shita"),
+]
+for (input, romaji, kana, deleting) in spacedParticleCases {
+    let j = detector.judge(input)
+    expect(j.convert && j.romaji == romaji && j.kana == kana,
+           "spaced \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
+    expect(j.deleteCount == deleting.count, "spaced deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
+// 英文のまま残す。to / no / he は前の語が短い、または助詞の後ろが英単語なら変換しない
+for input in [
+    "git push origin main", "to do", "no change", "go home", "a ha",
+    "want to", "have to", "going to", "according to", "open to",
+    "thanks to", "return to", "default to", "related to", "close to", "next to",
+    "say no", "and he", "see ya", "go to", "hand made", "custom made",
+    "repository to do", "repository ha home", "repository go", "repository do",
+    "repository demo", "repository made", "repositorymade", "repositorydemo",
+    "OK to", "PR to", "made",
+] {
+    let j = detector.judge(input)
+    expect(!j.convert, "english must stay \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
 }
 
 // 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
