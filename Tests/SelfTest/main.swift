@@ -79,7 +79,6 @@ let particleCases: [(String, String, String)] = [
     ("githubha", "ha", "は"),
     ("updateshitai", "shitai", "したい"),
     ("repositoryha tsukaeru?", "hatsukaeru?", "はつかえる？"),
-    // 空白ありと同じ助詞を、空白なしでも助詞だけ変換する。made は辞書語との複合になるのでここには入れない
     ("repositoryto", "to", "と"),
     ("repositoryno", "no", "の"),
     ("repositorytoka", "toka", "とか"),
@@ -92,7 +91,6 @@ for (input, romaji, kana) in particleCases {
     expect(j.deleteCount == typedSuffix.count, "particle deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
-// 空白のあとが助詞だけで終わっていても変換する。後ろにローマ字は要らない
 let spacedParticleCases: [(String, String, String, String)] = [
     ("repository ha", "ha", "は", "ha"),
     ("repository ga", "ga", "が", "ga"),
@@ -120,11 +118,8 @@ let spacedParticleCases: [(String, String, String, String)] = [
     ("GitHub to", "to", "と", "to"),
     ("GitHub no", "no", "の", "no"),
     ("Kubernetes ha", "ha", "は", "ha"),
-    // 助詞の後ろに日本語のローマ字が続けば、to/no も辞書語の直後で変換する
     ("repository to onaji", "toonaji", "とおなじ", "to onaji"),
     ("repository no hou", "nohou", "のほう", "no hou"),
-    // 打ち直しは末尾の連続したローマ字だけ。間の英単語は残せないので、その前の助詞は残る。
-    // 末尾まで変換しないと、Enter はそのまま送られる。
     ("Kubernetes no pod ga ochiru", "gaochiru", "がおちる", "ga ochiru"),
     ("PR wo merge shita", "shita", "した", "shita"),
 ]
@@ -135,8 +130,6 @@ for (input, romaji, kana, deleting) in spacedParticleCases {
     expect(j.deleteCount == deleting.count, "spaced deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
-// 英文のまま残す。to / no / he / ya は英単語なので、行末では技術用語の直後だけ変換する。
-// repository や introduction のような辞書語では変換しない。文字数では分かれない。
 for input in [
     "git push origin main", "to do", "no change", "go home", "a ha",
     "want to", "have to", "going to", "according to", "open to",

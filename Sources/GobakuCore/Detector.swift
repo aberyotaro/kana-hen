@@ -109,8 +109,6 @@ public final class Detector {
         guard let first = tokens.last else {
             return Judgment(convert: false, romaji: "", kana: "", deleteCount: 0, reason: "ローマ字ではない")
         }
-        // "repository ha" のように、空白のあとが助詞だけで終わっていても変換する。
-        // くっつき（repositoryha）は上の splitParticle が拾う
         let hasSpacedParticle = !hasParticleSplit && isSpacedParticle(chars: chars, earliest: first)
         tokens.reverse()
 
@@ -124,15 +122,12 @@ public final class Detector {
         for (index, t) in tokens.enumerated() {
             let w = t.word.filter(\.isLetter)
             letters += w.count
-            // 分割や空白で拾った助詞は、辞書にある綴り（ha, to, no）でも日本語として数える
             if ((hasParticleSplit || hasSpacedParticle) && index == 0) || !isEnglish(w) {
                 japaneseLetters += w.count
             }
         }
 
-        // 助詞の後ろが do や home だけなら、その助詞ごと変換しない。
-        // 英単語の直後に付いた助詞は短くても意図が明らかなので、文字数の下限を問わない
-        if hasSpacedParticle && remainderIsEnglish(tokens) {
+        if hasSpacedParticle && remainderBelowJapaneseRatio(tokens) {
             result.reason = "助詞の後ろが英単語"
         } else if !hasParticleSplit && !hasSpacedParticle && letters < minLetters {
             result.reason = "短すぎる (\(letters) < \(minLetters))"
@@ -156,21 +151,14 @@ public final class Detector {
     ]
     static let maxParticleLength = particles.map(\.count).max()!
 
-    /// 空白のあと、この語だけで終わっていても変換する助詞。
-    /// demo や desu は入れない。demo は "repository demo" という英文になり、
-    /// desu は 4 文字あって通常の判定で足りる。
-    /// made は辞書語なので repositorymade が英単語 2 つの複合になり、空白ありも変換しない
-    static let spacedParticles: Set<String> = [
+    static let bareSpacedParticles: Set<String> = [
         "ha", "ga", "wo", "ni", "de", "mo",
         "kara", "yori", "dake", "nara", "toka",
-        "to", "no", "he", "ya",
     ]
 
-    /// 英文の末尾にもよく出る助詞。前の語が長い、または技術用語のときだけ単独で変換する
-    static let ambiguousSpacedParticles: Set<String> = ["to", "no", "he", "ya"]
+    static let englishWordParticles: Set<String> = ["to", "no", "he", "ya"]
 
-    /// according (9) は外し、repository (10) は入れる
-    static let minAmbiguousAnchorLength = 10
+    static let spacedParticles: Set<String> = bareSpacedParticles.union(englishWordParticles)
 
     /// "repositoryha" → ("ha", "は")。前半が英単語で、後半が助詞の組み合わせのときだけ分割する
     func splitParticle(_ word: String) -> (offset: Int, suffix: String, kana: String)? {
@@ -248,7 +236,6 @@ public final class Detector {
         return reachable[chars.count] && chars.contains(where: \.isLetter)
     }
 
-    /// 末尾のトークンが助詞（と句読点）だけで、直前の空白の向こうが英単語なら true
     private func isSpacedParticle(
         chars: [Character], earliest: (start: Int, word: String, kana: String)
     ) -> Bool {
@@ -257,7 +244,6 @@ public final class Detector {
         return isSpacedAnchor(anchor, particle: particle)
     }
 
-    /// "ha" や "ha?" は "ha"。助詞以外のローマ字が混じっていれば nil
     static func spacedParticleLetters(_ token: String) -> String? {
         var letters = ""
         var sawPunctuation = false
@@ -275,7 +261,6 @@ public final class Detector {
         return letters
     }
 
-    /// トークンの直前が空白なら、その空白より前の語。repositoryha のようにくっついているときは nil
     private func previousWord(in chars: [Character], before index: Int) -> String? {
         var i = index
         while i > 0, chars[i - 1] == " " { i -= 1 }
@@ -287,16 +272,14 @@ public final class Detector {
         return String(chars[start..<end])
     }
 
-    /// 空白の前に置いてよい語。曖昧な助詞は、長い語か技術用語のときだけ
     private func isSpacedAnchor(_ word: String, particle: String) -> Bool {
         guard isSpacedEnglishWord(word) else { return false }
-        if Self.ambiguousSpacedParticles.contains(particle) {
-            return word.count >= Self.minAmbiguousAnchorLength || isTechnicalToken(word)
+        if Self.englishWordParticles.contains(particle) {
+            return isTechnicalToken(word)
         }
         return true
     }
 
-    /// 辞書の 3 文字以上、先頭が大文字の固有名詞（Kubernetes）、または技術用語
     private func isSpacedEnglishWord(_ word: String) -> Bool {
         if isEnglishPrefix(word) { return true }
         return word.count >= 3
@@ -304,8 +287,6 @@ public final class Detector {
             && word.first?.isUppercase == true
     }
 
-    /// 数字、大文字小文字の混在（GitHub, iOS）、3 文字以上の全大文字（API）。
-    /// 2 文字の OK / PR は "OK to" になるので技術用語にしない
     private func isTechnicalToken(_ word: String) -> Bool {
         let chars = Array(word)
         guard chars.count >= 2,
@@ -317,8 +298,7 @@ public final class Detector {
         return chars.count >= 3 && chars.allSatisfy(\.isUppercase)
     }
 
-    /// 助詞より後ろが英単語だけ、または日本語の文字数が割合の下限未満なら true
-    private func remainderIsEnglish(_ tokens: [(start: Int, word: String, kana: String)]) -> Bool {
+    private func remainderBelowJapaneseRatio(_ tokens: [(start: Int, word: String, kana: String)]) -> Bool {
         var letters = 0
         var japanese = 0
         for t in tokens.dropFirst() {

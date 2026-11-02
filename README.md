@@ -2,7 +2,7 @@
 
 英数モードで打ったローマ字を、Enter でかな入力に打ち直す macOS の常駐プログラムです。変換するとき、その Enter はアプリに届きません。
 
-`kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語の直後の助詞は助詞以降だけを打ち直します。`repositoryha` は「repositoryは」、`repository ha` は「repository は」、`repository ha ugokanai` は「repository はうごかない」です。`to`・`no`・`he`・`ya` は英語でも使うので、前の語が 10 文字以上か、`GitHub`・`API`・`v2` のように大文字や数字が混じるときだけ、助詞だけで終わっていても変換します。`made` は辞書にあるので、`repository made` も `repositorymade` も変換しません。
+`kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語の直後の助詞は助詞以降だけを打ち直します。`repositoryha` は「repositoryは」、`repository ha` は「repository は」、`repository ha ugokanai` は「repository はうごかない」です。`to`・`no`・`he`・`ya` は英単語でもあるので、行がその語で終わるときは `GitHub`・`API`・`v2` のような技術用語の直後だけ変換します。`repository to` や `introduction to` は変換しません。`made` は辞書にあるので、`repository made` も `repositorymade` も変換しません。
 
 打った文字はネットワークへ送りません。Enter で判定するまでメモリ上に最大 256 文字だけ持ち、`-v` で起動したときだけ変換結果をログに出します。
 
