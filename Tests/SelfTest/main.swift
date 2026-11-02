@@ -79,7 +79,6 @@ let particleCases: [(String, String, String)] = [
     ("githubha", "ha", "は"),
     ("updateshitai", "shitai", "したい"),
     ("repositoryha tsukaeru?", "hatsukaeru?", "はつかえる？"),
-    // 空白ありと同じ助詞を、空白なしでも助詞だけ変換する。made は辞書語との複合になるのでここには入れない
     ("repositoryto", "to", "と"),
     ("repositoryno", "no", "の"),
     ("repositorytoka", "toka", "とか"),
@@ -92,18 +91,13 @@ for (input, romaji, kana) in particleCases {
     expect(j.deleteCount == typedSuffix.count, "particle deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
-// 空白のあとが助詞だけで終わっていても変換する。後ろにローマ字は要らない
 let spacedParticleCases: [(String, String, String, String)] = [
     ("repository ha", "ha", "は", "ha"),
     ("repository ga", "ga", "が", "ga"),
     ("repository wo", "wo", "を", "wo"),
     ("repository ni", "ni", "に", "ni"),
     ("repository de", "de", "で", "de"),
-    ("repository no", "no", "の", "no"),
     ("repository mo", "mo", "も", "mo"),
-    ("repository to", "to", "と", "to"),
-    ("repository he", "he", "へ", "he"),
-    ("repository ya", "ya", "や", "ya"),
     ("repository kara", "kara", "から", "kara"),
     ("repository yori", "yori", "より", "yori"),
     ("repository dake", "dake", "だけ", "dake"),
@@ -122,11 +116,11 @@ let spacedParticleCases: [(String, String, String, String)] = [
     ("v2 no", "no", "の", "no"),
     ("API to", "to", "と", "to"),
     ("GitHub to", "to", "と", "to"),
+    ("GitHub no", "no", "の", "no"),
     ("Kubernetes ha", "ha", "は", "ha"),
-    ("Kubernetes no", "no", "の", "no"),
-    // pod はローマ字ではないので、その前の no は残し、末尾だけ変換する
+    ("repository to onaji", "toonaji", "とおなじ", "to onaji"),
+    ("repository no hou", "nohou", "のほう", "no hou"),
     ("Kubernetes no pod ga ochiru", "gaochiru", "がおちる", "ga ochiru"),
-    // merge はローマ字ではないので、wo は届かず shita だけ変換する
     ("PR wo merge shita", "shita", "した", "shita"),
 ]
 for (input, romaji, kana, deleting) in spacedParticleCases {
@@ -136,18 +130,46 @@ for (input, romaji, kana, deleting) in spacedParticleCases {
     expect(j.deleteCount == deleting.count, "spaced deleteCount \(input.debugDescription): \(j.deleteCount)")
 }
 
-// 英文のまま残す。to / no / he は前の語が短い、または助詞の後ろが英単語なら変換しない
 for input in [
     "git push origin main", "to do", "no change", "go home", "a ha",
     "want to", "have to", "going to", "according to", "open to",
     "thanks to", "return to", "default to", "related to", "close to", "next to",
-    "say no", "and he", "see ya", "go to", "hand made", "custom made",
-    "repository to do", "repository ha home", "repository go", "repository do",
+    "introduction to", "commitment to", "configuration to", "implementation to",
+    "say no", "and he", "see ya", "absolutely no", "definitely no",
+    "go to", "hand made", "custom made",
+    "repository to", "repository no", "repository he", "repository ya",
+    "Kubernetes no", "Kubernetes to",
+    "repository to do", "repository ha home", "API to do",
+    "repository go", "repository do",
     "repository demo", "repository made", "repositorymade", "repositorydemo",
     "OK to", "PR to", "made",
 ] {
     let j = detector.judge(input)
     expect(!j.convert, "english must stay \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")
+}
+
+// web2 には shita, kana, dane, nanda がある。wamerican には shita, kana, nanda がない。dane は両方にある。
+do {
+    var words = Detector.loadEnglishWords(paths: ["/usr/share/dict/words"])
+    words.formUnion(["shita", "kana", "dane", "merge", "repository", "mono", "mundane", "made"])
+    let mac = Detector(englishWords: words)
+    let shita = mac.judge("PR wo merge shita")
+    expect(shita.convert && shita.romaji == "shita" && shita.kana == "した",
+           "dictionary shita still converts: \(shita.romaji) → \(shita.kana) [\(shita.reason)]")
+    expect(shita.deleteCount == "shita".count, "dictionary shita deleteCount: \(shita.deleteCount)")
+    let kana = mac.judge("kana")
+    expect(kana.convert && kana.kana == "かな", "dictionary kana still converts: \(kana.romaji) → \(kana.kana) [\(kana.reason)]")
+    let dane = mac.judge("dane")
+    expect(dane.convert && dane.kana == "だね", "dictionary dane still converts: \(dane.romaji) → \(dane.kana) [\(dane.reason)]")
+    expect(!mac.judge("made").convert, "made stays English beside those endings")
+    for glued in ["mergeshita", "repositoryshita"] {
+        let j = mac.judge(glued)
+        expect(j.convert && j.romaji == "shita" && j.kana == "した",
+               "glued shita still converts \(glued): \(j.romaji) → \(j.kana) [\(j.reason)]")
+        expect(j.deleteCount == "shita".count, "glued shita deleteCount \(glued): \(j.deleteCount)")
+    }
+    expect(!mac.judge("mundane").convert, "mundane stays English")
+    expect(!mac.judge("kanamono").convert, "kanamono stays English")
 }
 
 // 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
