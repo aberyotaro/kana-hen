@@ -41,9 +41,10 @@ enum Accessibility {
     private static func read(_ app: AXUIElement) -> Result<FocusedText, FocusedTextError> {
         var focused: CFTypeRef?
         let fe = AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused)
-        guard fe == .success, let focused, let element = focused as? AXUIElement else {
+        guard fe == .success, let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else {
             return .failure(.noFocusedElement(fe))
         }
+        let element = unsafeDowncast(focused, to: AXUIElement.self)
         if isSecureField(element) { return .failure(.secureField) }
 
         var value: CFTypeRef?
@@ -53,8 +54,8 @@ enum Accessibility {
         var rangeRef: CFTypeRef?
         let re = AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef)
         var range = CFRange()
-        guard re == .success, let rangeRef, let axValue = rangeRef as? AXValue,
-              AXValueGetValue(axValue, .cfRange, &range) else {
+        guard re == .success, let rangeRef, CFGetTypeID(rangeRef) == AXValueGetTypeID(),
+              AXValueGetValue(unsafeDowncast(rangeRef, to: AXValue.self), .cfRange, &range) else {
             return .failure(.noSelectedRange(re))
         }
         return .success(FocusedText(text: text, caret: range.location, selectionLength: range.length))
