@@ -423,3 +423,31 @@ public final class Detector {
         return japanese == 0 || Double(japanese) / Double(letters) < minJapaneseRatio
     }
 }
+
+extension Detector {
+    /// 入力欄でカーソルの直前にある英単語の後ろに、英数モードで打った文字（typed）が続くとして判定する。
+    /// かなモードで英単語を打って確定し、英数モードに切り替えて助詞だけを打った場合（"Draft" + "de"）は、
+    /// typed だけでは短すぎて判定できないため、入力欄の直前の文字（context）を前につなぐ。
+    /// 打ち直すのは typed の中だけで、context の文字は消さない
+    public func judge(_ typed: String, after context: String) -> Judgment {
+        let own = judge(typed)
+        guard !own.convert else { return own }
+        let word = Self.trailingWord(of: context)
+        guard !word.isEmpty else { return own }
+        var joined = judge(word + typed)
+        guard joined.convert, joined.deleteCount <= typed.count else { return own }
+        joined.reason += "（入力欄の直前の \(word.count) 文字とつないで判定）"
+        return joined
+    }
+
+    /// 末尾のスペースと、その前に続く ASCII の英数字。"PRはDraft" → "Draft"、"push origin " → "origin "
+    static func trailingWord(of context: String) -> String {
+        let chars = Array(context)
+        var i = chars.count
+        while i > 0, chars[i - 1] == " " { i -= 1 }
+        let spaceStart = i
+        while i > 0, chars[i - 1].isASCII, chars[i - 1].isLetter || chars[i - 1].isNumber { i -= 1 }
+        guard i < spaceStart else { return "" }
+        return String(chars[i...])
+    }
+}

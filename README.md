@@ -10,6 +10,8 @@ repository ni push⏎    →  repository に push
 git push origin main⏎  →  そのまま送信
 ```
 
+かなモードで Shift から打った英単語の後ろの助詞も、Enter でかなにする（`Draftde` → `Draftで`）。入力欄の中身を読めるアプリだけで動く。
+
 変換するときは Enter を横取りするので、ローマ字のまま送信されない。かなは変換待ちで残るので、そのまま漢字にできる。
 
 ## インストール
@@ -36,7 +38,7 @@ launchctl kickstart -k gui/$(id -u)/local.kanahen
 
 英文を壊さないことを優先している。
 
-- 4 文字未満の語（英単語の直後の助詞は除く）
+- 4 文字未満の語（英単語の直後の助詞は除く。かなモードで打って確定した英単語の直後に、英数モードで打った助詞も変換する）
 - 辞書にある英単語（`same`、`made`）と、英単語 2 つに分けられる語（`kanamono`）
 - 英文にも出る `to`・`no`・`he`・`ya`。`GitHub`・`API`・`v2` のような技術用語の直後だけ変換する
 - 英単語に挟まれた助詞をつなげた形（`repositorynipush`）

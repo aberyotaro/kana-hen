@@ -307,6 +307,60 @@ do {
     expect(b.text.isEmpty, "backspace after idle discards the buffer: \(b.text)")
 }
 
+// かなモードで確定した英単語のあとに、英数モードで助詞だけを打った場合
+do {
+    let d = detector
+    for (context, typed, kana) in [("PRはDraft", "de", "で"), ("Draft", " de", "で"), ("GitHub", "ni", "に"),
+                                   ("これは repository", "wo", "を"), ("API ", "de", "で")] {
+        let j = d.judge(typed, after: context)
+        expect(j.convert && j.kana == kana && j.deleteCount <= typed.count,
+               "\(context.debugDescription) + \(typed.debugDescription) → \(j.kana) (\(j.reason)) delete \(j.deleteCount)")
+    }
+    for (context, typed) in [("", "de"), ("これは", "de"), ("Draft", "ok"),
+                             ("hello", "world"), ("Draft", "do")] {
+        let j = d.judge(typed, after: context)
+        expect(!j.convert, "\(context.debugDescription) + \(typed.debugDescription) must stay: \(j.kana) (\(j.reason))")
+    }
+    let field = FocusedText(text: "PRはDraftde", caret: 10, selectionLength: 0)
+    expect(field.text(before: "de") == "PRはDraft", "context before typed: \(field.text(before: "de") ?? "nil")")
+    expect(field.text(before: "xx") == nil, "context needs typed at the caret")
+}
+
+// かなモードで Shift+英字から始まる英字の区間（戻る決まりは入力欄で確かめるので、ここでは広めに拾う）
+do {
+    func run(_ keys: String) -> String? {
+        var t = CompositionTracker()
+        for c in keys {
+            if c == "⌫" { t.backspace() } else { t.type(c) }
+        }
+        return t.asciiRun
+    }
+    expect(run("Draftde") == "Draftde", "shifted letter starts the run: \(run("Draftde") ?? "nil")")
+    expect(run("kyouhaDraftde") == "Draftde", "hiragana before the run is not included: \(run("kyouhaDraftde") ?? "nil")")
+    expect(run("v2Draft-de") == "Draft-de", "symbols stay in the run: \(run("v2Draft-de") ?? "nil")")
+    expect(run("kyouha") == nil, "plain hiragana has no run")
+    expect(run("Draftdx⌫e") == "Draftde", "backspace inside the run")
+    expect(run("D⌫de") == nil, "deleting the whole run returns to hiragana")
+    expect(run("Draftでde") == nil, "non-ASCII input resets")
+}
+
+// 英数キーを押した直後は、問い合わせ結果が日本語のままでも英数として扱う
+do {
+    let t0 = Date()
+    var m = InputModeTracker(window: 1)
+    expect(!m.isASCII(reported: false, at: t0), "no mode key: follow the reported mode")
+    m.modeKeyPressed(ascii: true, at: t0)
+    expect(m.isASCII(reported: false, at: t0.addingTimeInterval(0.05)), "eisu key wins while the report lags")
+    expect(m.isASCII(reported: true, at: t0.addingTimeInterval(0.1)), "report caught up")
+    expect(!m.isASCII(reported: false, at: t0.addingTimeInterval(0.2)), "after catching up, follow the report again")
+
+    m.modeKeyPressed(ascii: true, at: t0)
+    expect(!m.isASCII(reported: false, at: t0.addingTimeInterval(1.5)), "mode key expires after the window")
+
+    m.modeKeyPressed(ascii: false, at: t0)
+    expect(!m.isASCII(reported: true, at: t0.addingTimeInterval(0.05)), "kana key wins while the report lags")
+}
+
 // 消してよいのは、消す文字列がカーソル直前にあって選択がないときだけ
 do {
     let field = FocusedText(text: "hello kyouha", caret: 12, selectionLength: 0)

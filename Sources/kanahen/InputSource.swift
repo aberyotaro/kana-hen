@@ -18,6 +18,10 @@ enum InputSource {
         return id(of: source)?.hasSuffix(".Roman") ?? false
     }
 
+    static func currentID() -> String? {
+        id(of: TISCopyCurrentKeyboardInputSource().takeRetainedValue())
+    }
+
     /// ひらがな（かな）入力のモードかどうか。ことえり・Google 日本語入力・ATOK の ID に対応する
     static func isKanaMode(_ id: String) -> Bool {
         id.hasSuffix(".Japanese") || id.hasSuffix(".Japanese.base") || id.hasSuffix(".Hiragana")
