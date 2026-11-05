@@ -4,6 +4,8 @@
 
 `kyouhaiitenkidesune` は変換待ちの「きょうはいいてんきですね」になります。英単語の直後の助詞は助詞以降だけを打ち直します。`repositoryha` は「repositoryは」、`repository ha` は「repository は」、`repository ha ugokanai` は「repository はうごかない」です。`to`・`no`・`he`・`ya` は英単語でもあるので、行がその語で終わるときは `GitHub`・`API`・`v2` のような技術用語の直後だけ変換します。`repository to` や `introduction to` は変換しません。`made` は辞書にあるので、`repository made` も `repositorymade` も変換しません。
 
+ローマ字と英単語と助詞がつながった 1 語は、英単語だけをそのまま挟んで打ち直します。`korehatestwo` は「これは」「test」「を」で、「これはtestを」になります。英単語が 4 文字以上で、前半がローマ字として読めるときだけです。`korehatest` のように助詞がなければ変換しません。スペースで区切った `repository ni push` は、助詞 `ha`・`ga`・`wo`・`ni`・`de`・`mo` だけを打ち直し、「repository に push」になります。助詞の後ろがすべて英単語のときだけで、`repository to push` や `git push origin main` は変換しません。`repositorynipush` のようにつなげた形も変換しません。
+
 打った文字はネットワークへ送りません。Enter で判定するまでメモリ上に最大 256 文字だけ持ち、`-v` で起動したときだけ変換結果をログに出します。
 
 ## 必要なもの
