@@ -307,6 +307,23 @@ do {
     expect(b.text.isEmpty, "backspace after idle discards the buffer: \(b.text)")
 }
 
+// 英数キーを押した直後は、問い合わせ結果が日本語のままでも英数として扱う
+do {
+    let t0 = Date()
+    var m = InputModeTracker(window: 1)
+    expect(!m.isASCII(reported: false, at: t0), "no mode key: follow the reported mode")
+    m.modeKeyPressed(ascii: true, at: t0)
+    expect(m.isASCII(reported: false, at: t0.addingTimeInterval(0.05)), "eisu key wins while the report lags")
+    expect(m.isASCII(reported: true, at: t0.addingTimeInterval(0.1)), "report caught up")
+    expect(!m.isASCII(reported: false, at: t0.addingTimeInterval(0.2)), "after catching up, follow the report again")
+
+    m.modeKeyPressed(ascii: true, at: t0)
+    expect(!m.isASCII(reported: false, at: t0.addingTimeInterval(1.5)), "mode key expires after the window")
+
+    m.modeKeyPressed(ascii: false, at: t0)
+    expect(!m.isASCII(reported: true, at: t0.addingTimeInterval(0.05)), "kana key wins while the report lags")
+}
+
 // 消してよいのは、消す文字列がカーソル直前にあって選択がないときだけ
 do {
     let field = FocusedText(text: "hello kyouha", caret: 12, selectionLength: 0)

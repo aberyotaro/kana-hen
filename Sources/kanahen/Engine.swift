@@ -50,6 +50,8 @@ final class Engine {
     let verbose: Bool
 
     private var buffer = InputBuffer()
+    private var inputMode = InputModeTracker()
+    private var modeLagLogged = false
     private var converting = false
     private var enabledForFrontApp = true
     /// 変換中に届いた本物のキー。打ち直しより先に入らないよう溜めておき、打ち直しのあとに流す
@@ -138,8 +140,21 @@ final class Engine {
             if let copy = event.copy() { heldDuringConversion.append(copy) }
             return false
         }
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        if keyCode == Int64(Key.eisu) || keyCode == Int64(Key.kana) {
+            inputMode.modeKeyPressed(ascii: keyCode == Int64(Key.eisu))
+            modeLagLogged = false
+            buffer.reset()
+            return true
+        }
         // 入力モードは変更通知だと取りこぼすことがあるため、キーごとに問い合わせる
-        if !enabledForFrontApp || !InputSource.isCurrentASCII() {
+        let reported = InputSource.isCurrentASCII()
+        let ascii = inputMode.isASCII(reported: reported)
+        if ascii != reported, !modeLagLogged {
+            modeLagLogged = true
+            diag("input mode not yet switched after mode key; using the mode key")
+        }
+        if !enabledForFrontApp || !ascii {
             buffer.reset()
             return true
         }
@@ -150,7 +165,6 @@ final class Engine {
             return true
         }
 
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         switch keyCode {
         case Key.returnKey, Key.enter:
             let text = buffer.consume()
