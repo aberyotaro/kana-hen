@@ -5,6 +5,17 @@ import GobakuCore
 /// 自分が送ったキーイベントの目印
 private let syntheticMarker: Int64 = 0x524F_4D41
 
+private let diagTimestamp: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.timeZone = .current
+    return f
+}()
+
+/// 常時ログ。打った文字・かな・文字数は渡さない（verbose と無関係に出る）
+private func diag(_ message: String) {
+    print("\(diagTimestamp.string(from: Date())) kanahen: \(message)")
+}
+
 private enum Key {
     static let returnKey: Int64 = 36
     static let enter: Int64 = 76
@@ -42,6 +53,7 @@ final class Engine {
     /// 変換中に届いた本物のキー。打ち直しより先に入らないよう溜めておき、打ち直しのあとに流す
     private var heldDuringConversion: [CGEvent] = []
     private var tap: CFMachPort?
+    private var secureInputWasOn = false
     private let eventSource = CGEventSource(stateID: .hidSystemState)
 
     init(detector: Detector, config: Config, verbose: Bool) {
@@ -93,7 +105,11 @@ final class Engine {
         let pass = Unmanaged.passUnretained(event)
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            diag(type == .tapDisabledByTimeout ? "event tap disabled (timeout)" : "event tap disabled (user input)")
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                diag("event tap re-enabled (enabled=\(CGEvent.tapIsEnabled(tap: tap)))")
+            }
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             buffer.reset()
         case .keyDown:
@@ -107,7 +123,12 @@ final class Engine {
     /// キーをそのまま通すなら true
     private func handleKeyDown(_ event: CGEvent) -> Bool {
         if event.getIntegerValueField(.eventSourceUserData) == syntheticMarker { return true }
-        if IsSecureEventInputEnabled() {
+        let secure = IsSecureEventInputEnabled()
+        if secure != secureInputWasOn {
+            secureInputWasOn = secure
+            diag(secure ? "secure input on" : "secure input off")
+        }
+        if secure {
             buffer.reset()
             return true
         }
@@ -132,7 +153,11 @@ final class Engine {
         case Key.returnKey, Key.enter:
             let text = buffer.consume()
             if flags.contains(.maskShift) { return true }
-            return !tryConvert(text)
+            let started = DispatchTime.now().uptimeNanoseconds
+            let converted = tryConvert(text)
+            let ms = Int((DispatchTime.now().uptimeNanoseconds - started) / 1_000_000)
+            if ms >= 500 { diag("Enter handling took \(ms) ms") }
+            return !converted
         case Int64(Key.delete):
             buffer.backspace()
             return true
@@ -163,6 +188,7 @@ final class Engine {
         }
         guard InputSource.find(config.japaneseInputSourceID) != nil else {
             log("日本語の入力ソースが見つからないため変換しません")
+            diag("conversion aborted: no Japanese input source")
             return false
         }
         // 記録と入力欄がずれていると、打っていない文字まで Backspace で消してしまう。
@@ -172,10 +198,12 @@ final class Engine {
         case .success(let field):
             guard field.endsAtCaret(with: typed) else {
                 log("Enter: 入力欄の内容が記録と一致しないため変換しません")
+                diag("conversion aborted: field mismatch")
                 return false
             }
         case .failure(.secureField):
             log("Enter: パスワード欄のため変換しません")
+            diag("conversion aborted: secure field")
             return false
         case .failure(let error):
             log("Enter: 入力欄を確認できないまま変換します（\(error)）")
