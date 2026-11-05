@@ -32,7 +32,13 @@ scripts/install.sh
 launchctl kickstart -k gui/$(id -u)/local.kanahen
 ```
 
-更新は `git pull && scripts/install.sh`。キーチェーンにコード署名用の自己署名証明書 `kanahen-dev` を作っておくと、更新しても許可が外れない。別名の証明書は `KANAHEN_SIGN_IDENTITY` で指定する。
+更新は `git pull && scripts/install.sh`。ad-hoc 署名のままだと、更新のたびにアクセシビリティの許可が外れる。先に次を実行して、コード署名用の自己署名証明書 `kanahen-dev` をログインキーチェーンに作っておくと、更新しても許可が外れない（作ったあとの初回だけは登録し直す）。
+
+```bash
+scripts/create-cert.sh
+```
+
+別名の証明書は `KANAHEN_SIGN_IDENTITY` で指定する。
 
 ## 変換しないもの
 
