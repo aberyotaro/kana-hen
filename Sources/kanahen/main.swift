@@ -85,7 +85,9 @@ case "probe":
     }
     switch Accessibility.focusedText() {
     case .success(let f):
-        print("ok: 文字数 \(f.text.utf16.count)  カーソル \(f.caret)  選択 \(f.selectionLength)")
+        // 改行の数え方がアプリで違い、文字数とカーソル位置がずれることがあるので、改行の数も出す
+        let newlines = f.text.utf16.filter { $0 == 0x0A || $0 == 0x0D }.count
+        print("ok: 文字数 \(f.text.utf16.count)  カーソル \(f.caret)  選択 \(f.selectionLength)  改行 \(newlines)")
     case .failure(let e):
         print("失敗: \(e)")
     }

@@ -304,7 +304,8 @@ final class Engine {
         case .success(let field):
             guard field.endsAtCaret(with: typed) else {
                 log("Enter: 入力欄の内容が記録と一致しないため変換しません")
-                diag("conversion aborted: field mismatch")
+                // 中身は出さず、ずれ方だけを残す（改行の数え方がアプリで違うなど）
+                diag("conversion aborted: field mismatch (\(field.mismatchSummary(typed: typed)))")
                 return false
             }
         case .failure(.secureField):

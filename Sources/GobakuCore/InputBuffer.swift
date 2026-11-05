@@ -84,6 +84,25 @@ public struct FocusedText: Equatable {
         return false
     }
 
+    /// 照合に失敗したときの手がかり。文字の中身は含めない。
+    /// typed が最後に現れる位置の終わりとカーソルの差（end-caret）で、ずれの大きさが分かる
+    public func mismatchSummary(typed: String) -> String {
+        let utf16 = Array(text.utf16)
+        let typed16 = Array(typed.utf16)
+        let newlines = utf16.filter { $0 == 0x0A || $0 == 0x0D }.count
+        var lastEnd: Int?
+        if typed16.count <= utf16.count {
+            for end in stride(from: utf16.count, through: typed16.count, by: -1)
+            where Array(utf16[(end - typed16.count)..<end]) == typed16 {
+                lastEnd = end
+                break
+            }
+        }
+        let offset = lastEnd.map { String($0 - caret) } ?? "none"
+        return "length \(utf16.count) caret \(caret) selection \(selectionLength) newlines \(newlines) "
+            + "typed \(typed16.count) end-caret \(offset)"
+    }
+
     /// カーソルの直前にある typed より前の文字（最大 limit 文字）。typed がカーソルの直前にないときは nil
     public func text(before typed: String, limit: Int = 64) -> String? {
         guard endsAtCaret(with: typed) else { return nil }
