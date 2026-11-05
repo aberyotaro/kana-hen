@@ -109,11 +109,28 @@ public final class Detector {
         // 末尾から、ローマ字として読めるトークンをさかのぼって集める
         var tokens: [(start: Int, word: String, kana: String)] = []
         var hasParticleSplit = false
+        // "18ji" のような数字＋助数詞。数字は英字のまま打ち直し、助数詞から後ろだけをかなにする。
+        // キーは助数詞の位置、値は前の数字
+        var numbers: [Int: String] = [:]
         var i = end
         while i > 0 {
             var start = i
             while start > 0, chars[start - 1] != " " { start -= 1 }
             let word = String(chars[start..<i])
+            if let (head, digits, counter, kana) = splitNumberedCounter(word) {
+                let counterStart = start + head.count + digits.count
+                tokens.append((counterStart, counter, kana))
+                numbers[counterStart] = digits
+                // "ashita18ji" の ashita のように、数字の前が同じ語に続いていれば、それも語として読む
+                if !head.isEmpty {
+                    i = start + head.count
+                    continue
+                }
+                if start == 0 { break }
+                i = start
+                while i > 0, chars[i - 1] == " " { i -= 1 }
+                continue
+            }
             // "kyouha ?" の "?" のように記号だけの語は、ローマ字の語に挟まれていれば一緒に打ち直す
             if !word.contains(where: \.isLetter), let kana = Romaji.toKana(word) {
                 tokens.append((start, word, kana))
@@ -144,9 +161,22 @@ public final class Detector {
         let hasSpacedParticle = !hasParticleSplit && isSpacedParticle(chars: chars, earliest: first)
         tokens.reverse()
 
-        let romaji = tokens.map(\.word).joined()
-        let kana = tokens.map(\.kana).joined()
-        var result = Judgment(convert: false, spans: [.kana(romaji: romaji, kana: kana)],
+        // 先頭の数字は消さずに残すので、打ち直すのは 2 つめ以降の数字だけ（"ashita 18ji" → あした + 18 + じ）
+        var spans: [Span] = []
+        var romaji = ""
+        var kana = ""
+        for (index, t) in tokens.enumerated() {
+            if index > 0, let digits = numbers[t.start] {
+                if !romaji.isEmpty { spans.append(.kana(romaji: romaji, kana: kana)) }
+                spans.append(.literal(digits))
+                romaji = ""
+                kana = ""
+            }
+            romaji += t.word
+            kana += t.kana
+        }
+        spans.append(.kana(romaji: romaji, kana: kana))
+        var result = Judgment(convert: false, spans: spans,
                               deleteCount: chars.count - first.start, reason: "")
 
         var letters = 0
@@ -154,14 +184,15 @@ public final class Detector {
         for (index, t) in tokens.enumerated() {
             let w = t.word.filter(\.isLetter)
             letters += w.count
-            if ((hasParticleSplit || hasSpacedParticle) && index == 0) || !isEnglish(w) {
+            if ((hasParticleSplit || hasSpacedParticle) && index == 0) || numbers[t.start] != nil
+                || !isEnglish(w) {
                 japaneseLetters += w.count
             }
         }
 
         if hasSpacedParticle && remainderBelowJapaneseRatio(tokens) {
             result.reason = "助詞の後ろが英単語"
-        } else if !hasParticleSplit && !hasSpacedParticle && letters < minLetters {
+        } else if !hasParticleSplit && !hasSpacedParticle && numbers.isEmpty && letters < minLetters {
             result.reason = "短すぎる (\(letters) < \(minLetters))"
         } else if japaneseLetters == 0 || Double(japaneseLetters) / Double(letters) < minJapaneseRatio {
             result.reason = "英単語が多い"
@@ -347,6 +378,20 @@ public final class Detector {
         "kai", "kaime", "ko", "hon", "bon", "pon", "mai", "nin", "en", "sai",
         "ban", "banme", "bai", "ken", "dai", "man", "oku", "sen", "hyaku", "wari", "tsu",
     ].flatMap(spellingVariants))
+
+    /// "ashita18jikara" → ("ashita", "18", "jikara", "じから")。最後の数字の後ろが助数詞から始まる語尾のときだけ
+    func splitNumberedCounter(_ word: String)
+        -> (head: String, digits: String, counter: String, kana: String)? {
+        let rest = String(word.reversed().prefix { !$0.isNumber }.reversed())
+        let beforeRest = word.dropLast(rest.count)
+        let digits = String(beforeRest.reversed().prefix(while: \.isNumber).reversed())
+        let head = String(beforeRest.dropLast(digits.count))
+        // 数字の前がローマ字でない語（pod2man, mp3ko）は、英語の名前の一部なので分けない
+        guard !digits.isEmpty, digits.allSatisfy(\.isASCII), isCounterChain(rest),
+              head.isEmpty || splitNumberedCounter(head) != nil || Romaji.toKana(head) != nil,
+              let kana = Romaji.toKana(rest) else { return nil }
+        return (head, digits, rest, kana)
+    }
 
     /// 助数詞 1 つと、その後ろの助詞の連なり（なくてもよい）。"18jikara" → じ + から
     func isCounterChain(_ s: String) -> Bool {

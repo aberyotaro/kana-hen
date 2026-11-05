@@ -186,6 +186,22 @@ do {
     expect(!mac.judge("kanamono").convert, "kanamono stays English")
 }
 
+// 文の途中の数字＋助数詞は、数字を英字のまま挟んで打ち直す。先頭の数字は消さずに残す
+let numberedCases: [(String, [Span], Int)] = [
+    ("ashita 18ji kara",
+     [.kana(romaji: "ashita", kana: "あした"), .literal("18"), .kana(romaji: "jikara", kana: "じから")], 16),
+    ("ashita18jikara",
+     [.kana(romaji: "ashita", kana: "あした"), .literal("18"), .kana(romaji: "jikara", kana: "じから")], 14),
+    ("18ji30pun",
+     [.kana(romaji: "ji", kana: "じ"), .literal("30"), .kana(romaji: "pun", kana: "ぷん")], 7),
+    ("meeting 18ji kara", [.kana(romaji: "jikara", kana: "じから")], 7),
+]
+for (input, spans, deleting) in numberedCases {
+    let j = detector.judge(input)
+    expect(j.convert && j.spans == spans, "numbered \(input.debugDescription): \(j.spans) [\(j.reason)]")
+    expect(j.deleteCount == deleting, "numbered deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
 // 1 語に「ローマ字＋英単語＋助詞」が連結しているときは、英単語をそのまま挟んで打ち直す
 let gluedCases: [(String, [Span], Int)] = [
     ("korehatestwo",
