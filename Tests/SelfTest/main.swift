@@ -404,6 +404,17 @@ do {
            "caret in the middle of the field")
     expect(!FocusedText(text: "ha", caret: 2, selectionLength: 0).endsAtCaret(with: "kyouha"),
            "field shorter than typed text must not match")
+    // Electron の複数行の欄は、空行があるとカーソル位置が改行の数までずれる（実測: 長さ 32、カーソル 31、改行 3）
+    let multiline = FocusedText(text: "あああ\nあああ\nあああ\ngithub repository ha", caret: 31, selectionLength: 0)
+    expect(multiline.endsAtCaret(with: "ha"), "multiline caret off by a newline at the end of the field")
+    expect(multiline.text(before: "ha") == "あああ\nあああ\nあああ\ngithub repository ",
+           "multiline context: \(multiline.text(before: "ha").debugDescription)")
+    expect(!FocusedText(text: "あああ\ngithub repository ha", caret: 20, selectionLength: 0).endsAtCaret(with: "ha"),
+           "a gap larger than the newline count must not match")
+    expect(!FocusedText(text: "github repository ha", caret: 19, selectionLength: 0).endsAtCaret(with: "ha"),
+           "no newline means no allowance")
+    expect(!FocusedText(text: "あ\nkyouha world", caret: 13, selectionLength: 0).endsAtCaret(with: "kyouha"),
+           "typed text not at the end of the field must not match")
     expect(FocusedText(text: "絵文字😀 desu", caret: 10, selectionLength: 0).endsAtCaret(with: "desu"),
            "caret is in UTF-16 units")
 }
