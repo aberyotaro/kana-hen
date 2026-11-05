@@ -40,6 +40,7 @@ launchctl kickstart -k gui/$(id -u)/local.kanahen
 - 辞書にある英単語（`same`、`made`）と、英単語 2 つに分けられる語（`kanamono`）
 - 英文にも出る `to`・`no`・`he`・`ya`。`GitHub`・`API`・`v2` のような技術用語の直後だけ変換する
 - 英単語に挟まれた助詞をつなげた形（`repositorynipush`）
+- 英単語に挟まれた `de`（`the de facto standard`、`Tour de France`）
 - 貼り付けた文字、矢印キーやクリックのあとの文字、Shift+Enter
 
 ## 使い方

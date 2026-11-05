@@ -203,7 +203,7 @@ let spacedLiteralCases: [(String, [Span], Int)] = [
     ("repository wo push main", [.kana(romaji: "wo", kana: "を"), .literal(" push main")], 12),
     ("git repository ha push", [.kana(romaji: "ha", kana: "は"), .literal(" push")], 7),
     ("PR ga merge", [.kana(romaji: "ga", kana: "が"), .literal(" merge")], 8),
-    ("repository de push ", [.kana(romaji: "de", kana: "で"), .literal(" push ")], 8),
+    ("repository ni push ", [.kana(romaji: "ni", kana: "に"), .literal(" push ")], 8),
 ]
 for (input, spans, deleting) in spacedLiteralCases {
     let j = detector.judge(input)
@@ -215,6 +215,7 @@ for input in [
     "git push origin main", "want to go", "from A to B", "repository to push", "repository no push",
     "repository he push", "repository ya push", "repositorynipush", "a ha moment", "I mo test",
     "go ni push", "repository ha home", "repository ni kyou push",
+    "the de facto standard", "Tour de France", "Pierre de Fermat proved it", "repository de push",
 ] {
     let j = detector.judge(input)
     expect(!j.convert, "spaced literal must stay \(input.debugDescription): \(j.spans) [\(j.reason)]")

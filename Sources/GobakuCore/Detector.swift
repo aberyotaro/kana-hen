@@ -209,8 +209,8 @@ public final class Detector {
         return nil
     }
 
-    /// 英文の中の to / no / he / ya は助詞ではないので、英文では使わない助詞だけを対象にする
-    static let spacedLiteralTailParticles: Set<String> = ["ha", "ga", "wo", "ni", "de", "mo"]
+    /// 英文の中の to / no / he / ya / de（de facto, Tour de France）は助詞ではないので、英文では使わない助詞だけを対象にする
+    static let spacedLiteralTailParticles: Set<String> = ["ha", "ga", "wo", "ni", "mo"]
 
     /// "repository ni push" → repository + に + " push"。助詞より後ろがローマ字でない語（英単語）だけのとき、助詞だけを打ち直す
     private func judgeSpacedLiteralTail(chars: [Character], end: Int) -> Judgment? {
