@@ -251,12 +251,46 @@ public final class Detector {
         "tte", "toka", "kara", "made", "dake", "demo", "nara", "nano", "nanda", "mitai",
         "ppoi", "kedo", "yone", "kana", "kamo", "yori", "suru", "shita", "shite", "shitai",
         "shinai", "shimasu", "shimashita", "dekiru", "dekita", "sareta", "saseru",
+        // してください・しています などの語尾。ite / iru / you は "SQLite" "thankyou" のように
+        // 英語の語尾にもなるので、単独では入れず shite などと組にした形だけを入れる
+        "kudasai", "kure", "kureru", "kureta", "hoshii", "morau", "moratta", "moraeru",
+        "onegai", "onegaishimasu", "masu", "mashita", "masen", "mashou", "imasu", "imashita",
+        "shiteru", "shiteta", "shitemasu", "shiteiru", "shiteita", "shiteoku", "shiteoite",
+        "shitearu", "shitara", "shitemo", "shimasen", "shimashou", "shiyou", "sareru", "saremasu",
+        "dekinai", "dekimasu", "dekimasen", "teiru", "teita", "teru", "tara", "tari",
+        "nai", "nakatta", "naku", "nakute", "rashii", "shirenai",
         "-", ",", ".", "?", "!",
     ]
-    static let maxParticleLength = particles.map(\.count).max()!
 
-    /// made / demo / nano は助詞表にもある英単語。
-    static let englishHomographParticles: Set<String> = ["made", "demo", "nano"]
+    /// 訓令式などの別の書き方も含めた助詞・語尾。"site"（して）のように英単語と同じ綴りになるものがあるため、
+    /// japaneseEndings には入れず、英単語の後ろに続く助詞の連なりとしてだけ認める
+    static let particleSpellings: Set<String> = Set(particles.flatMap(spellingVariants))
+
+    static let spellingAlternatives: [(String, String)] = [
+        ("shi", "si"), ("chi", "ti"), ("tsu", "tu"), ("sha", "sya"), ("shu", "syu"), ("sho", "syo"),
+        ("ja", "zya"), ("ju", "zyu"), ("jo", "zyo"), ("ji", "zi"),
+    ]
+
+    /// "deshita" → deshita, desita
+    static func spellingVariants(_ word: String) -> [String] {
+        var results = [""]
+        var rest = Substring(word)
+        while !rest.isEmpty {
+            if let (from, to) = spellingAlternatives.first(where: { rest.hasPrefix($0.0) }) {
+                results = results.flatMap { [$0 + from, $0 + to] }
+                rest = rest.dropFirst(from.count)
+            } else {
+                let c = rest.removeFirst()
+                results = results.map { $0 + String(c) }
+            }
+        }
+        return results
+    }
+
+    static let maxParticleLength = particleSpellings.map(\.count).max()!
+
+    /// made / demo / nano は助詞表にもある英単語。masu / tara / tari は辞書にある語（地名・人名など）
+    static let englishHomographParticles: Set<String> = ["made", "demo", "nano", "masu", "tara", "tari"]
 
     /// 4 文字以上の助詞・語尾。to / no / ya は短いのでここには入らず、辞書の判定のまま。
     static let japaneseEndings: Set<String> = Set(
@@ -341,7 +375,7 @@ public final class Detector {
         reachable[0] = true
         for i in 0..<chars.count where reachable[i] {
             for len in 1...min(Self.maxParticleLength, chars.count - i)
-            where Self.particles.contains(String(chars[i..<i + len])) {
+            where Self.particleSpellings.contains(String(chars[i..<i + len])) {
                 reachable[i + len] = true
             }
         }
