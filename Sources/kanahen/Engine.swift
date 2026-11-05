@@ -278,9 +278,10 @@ final class Engine {
             return false
         }
         var judgment = detector.judge(text)
-        // かなモードで確定した英単語のあとに、英数モードで助詞だけを打った場合は、入力欄の直前の文字とつないで判定する
+        // かなモードで確定した英単語のあとに、英数モードで助詞だけを打った場合は、入力欄の直前の文字とつないで判定する。
+        // 入力欄の読み取りはキー入力を止めるので、英文の Enter では読まないよう、短すぎて判定できない記録に限る
         var field: Result<FocusedText, FocusedTextError>?
-        if !judgment.convert {
+        if !judgment.convert, text.count < detector.minLetters {
             let read = Accessibility.focusedText()
             field = read
             if case .success(let f) = read, let context = f.text(before: text) {
