@@ -1,5 +1,6 @@
 import Foundation
-import GobakuCore
+import Capture
+import Conversion
 
 var failures = 0
 func expect(_ ok: Bool, _ message: @autoclosure () -> String) {

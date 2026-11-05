@@ -1,5 +1,5 @@
 import Cocoa
-import GobakuCore
+import Capture
 
 enum FocusedTextError: Error, CustomStringConvertible {
     case noFocusedElement(AXError)

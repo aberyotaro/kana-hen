@@ -1,6 +1,7 @@
 import Cocoa
 import Carbon
-import GobakuCore
+import Capture
+import Conversion
 
 /// 自分が送ったキーイベントの目印
 private let syntheticMarker: Int64 = 0x524F_4D41
