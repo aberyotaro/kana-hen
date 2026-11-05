@@ -1,8 +1,10 @@
 import Foundation
 
+/// 英数モードで打たれた文字を、カーソル位置が変わるまで溜めておく。
 public struct InputBuffer {
     public private(set) var text = ""
     let limit: Int
+    /// これより長く入力が途切れたら、フォーカスが移った可能性があるので捨てる
     let idleLimit: TimeInterval
     private var lastInput: Date?
 
