@@ -326,6 +326,24 @@ do {
     expect(field.text(before: "xx") == nil, "context needs typed at the caret")
 }
 
+// かなモードで Shift+英字から始まる英字の区間（戻る決まりは入力欄で確かめるので、ここでは広めに拾う）
+do {
+    func run(_ keys: String) -> String? {
+        var t = CompositionTracker()
+        for c in keys {
+            if c == "⌫" { t.backspace() } else { t.type(c) }
+        }
+        return t.asciiRun
+    }
+    expect(run("Draftde") == "Draftde", "shifted letter starts the run: \(run("Draftde") ?? "nil")")
+    expect(run("kyouhaDraftde") == "Draftde", "hiragana before the run is not included: \(run("kyouhaDraftde") ?? "nil")")
+    expect(run("v2Draft-de") == "Draft-de", "symbols stay in the run: \(run("v2Draft-de") ?? "nil")")
+    expect(run("kyouha") == nil, "plain hiragana has no run")
+    expect(run("Draftdx⌫e") == "Draftde", "backspace inside the run")
+    expect(run("D⌫de") == nil, "deleting the whole run returns to hiragana")
+    expect(run("Draftでde") == nil, "non-ASCII input resets")
+}
+
 // 英数キーを押した直後は、問い合わせ結果が日本語のままでも英数として扱う
 do {
     let t0 = Date()

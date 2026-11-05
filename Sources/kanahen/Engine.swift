@@ -51,6 +51,8 @@ final class Engine {
 
     private var buffer = InputBuffer()
     private var inputMode = InputModeTracker()
+    /// かなモードの変換待ちのうち、Shift+英字から始まる英字の区間
+    private var composition = CompositionTracker()
     private var modeLagLogged = false
     private var converting = false
     private var enabledForFrontApp = true
@@ -98,6 +100,7 @@ final class Engine {
     private func frontAppChanged(_ app: NSRunningApplication?) {
         // 前面アプリが変わったらカーソル位置が分からなくなる
         buffer.reset()
+        composition.reset()
         // 対象外のアプリ（ターミナルなど）では、打った文字を記録しない
         enabledForFrontApp = config.isEnabled(for: app?.bundleIdentifier)
         // Electron 製アプリは最初の問い合わせで入力欄を返さないので、Enter より前に準備させておく
@@ -116,6 +119,7 @@ final class Engine {
             }
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             buffer.reset()
+            composition.reset()
         case .keyDown:
             return handleKeyDown(event) ? pass : nil
         default:
@@ -145,6 +149,7 @@ final class Engine {
             inputMode.modeKeyPressed(ascii: keyCode == Int64(Key.eisu))
             modeLagLogged = false
             buffer.reset()
+            composition.reset()
             return true
         }
         // 入力モードは変更通知だと取りこぼすことがあるため、キーごとに問い合わせる
@@ -154,10 +159,16 @@ final class Engine {
             modeLagLogged = true
             diag("input mode not yet switched after mode key; using the mode key")
         }
-        if !enabledForFrontApp || !ascii {
+        if !enabledForFrontApp {
             buffer.reset()
+            composition.reset()
             return true
         }
+        if !ascii {
+            buffer.reset()
+            return handleKanaModeKey(event, keyCode: keyCode)
+        }
+        composition.reset()
 
         let flags = event.flags
         if !flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty {
@@ -189,6 +200,75 @@ final class Engine {
             }
             return true
         }
+    }
+
+    /// かなモードのキー。Shift+英字から打った英単語＋助詞（"Draftde"）が変換待ちの末尾にあれば、
+    /// Enter で助詞だけをかなに打ち直す。キーをそのまま通すなら true
+    private func handleKanaModeKey(_ event: CGEvent, keyCode: Int64) -> Bool {
+        guard let id = InputSource.currentID(), InputSource.isKanaMode(id) else {
+            composition.reset()
+            return true
+        }
+        let flags = event.flags
+        if !flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskAlphaShift]).isEmpty {
+            composition.reset()
+            return true
+        }
+        switch keyCode {
+        case Key.returnKey, Key.enter:
+            let run = composition.asciiRun
+            composition.reset()
+            guard let run, !flags.contains(.maskShift) else { return true }
+            return !tryConvertComposition(run)
+        case Int64(Key.delete):
+            composition.backspace()
+            return true
+        default:
+            var length = 0
+            var chars = [UniChar](repeating: 0, count: 4)
+            event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &chars)
+            // スペースは変換、矢印・Tab・Esc は候補の操作なので、変換待ちの中身が分からなくなる
+            if length == 1, (0x21..<0x7F).contains(chars[0]), let scalar = Unicode.Scalar(chars[0]) {
+                composition.type(Character(scalar))
+            } else {
+                composition.reset()
+            }
+            return true
+        }
+    }
+
+    /// 変換待ちの末尾の英字（run）の助詞だけを打ち直したら true（Enter は握りつぶす）
+    private func tryConvertComposition(_ run: String) -> Bool {
+        let judgment = detector.judge(run)
+        guard judgment.convert, judgment.deleteCount <= run.count, judgment.spans.count == 1,
+              case .kana(let romaji, let kana) = judgment.spans[0] else {
+            log("Enter（かなモード）: 変換しません（\(judgment.reason)）")
+            return false
+        }
+        // 変換待ちの中身は打ったキーから推定しているだけなので、入力欄で確かめられないときは何もしない。
+        // 日本語入力が途中でひらがなに戻していれば（"PRha" → "PRは"）、ここで一致しなくなる
+        let typed = String(run.suffix(judgment.deleteCount))
+        guard case .success(let field) = Accessibility.focusedText(), field.compositionEnds(with: typed) else {
+            log("Enter（かなモード）: 入力欄で変換待ちの中身を確かめられないため変換しません")
+            diag("kana-mode conversion aborted: composition not confirmed")
+            return false
+        }
+        log("Enter（かなモード）: \(romaji) → \(kana)")
+
+        converting = true
+        DispatchQueue.main.async { [self] in
+            for _ in 0..<judgment.deleteCount { post(Key.delete) }
+            // かなキーを受けると、日本語入力は変換待ちを残したままひらがなに戻る（標準の日本語入力・Google 日本語入力）
+            post(Key.kana)
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(config.switchDelayMs)) { [self] in
+                for c in romaji {
+                    if let (code, shift) = Key.codes[c] { post(code, shift: shift) }
+                }
+                converting = false
+                replayHeldKeys()
+            }
+        }
+        return true
     }
 
     /// 変換を始めたら true（Enter は握りつぶす）

@@ -10,6 +10,8 @@ repository ni push⏎    →  repository に push
 git push origin main⏎  →  そのまま送信
 ```
 
+かなモードで Shift から打った英単語の後ろの助詞も、Enter でかなにする（`Draftde` → `Draftで`）。入力欄の中身を読めるアプリだけで動く。
+
 変換するときは Enter を横取りするので、ローマ字のまま送信されない。かなは変換待ちで残るので、そのまま漢字にできる。
 
 ## インストール
