@@ -52,9 +52,9 @@ public struct InputBuffer {
 
 /// フォーカス中の入力欄の状態。位置と長さは UTF-16 単位（アクセシビリティ API と同じ）
 public struct FocusedText: Equatable {
-    public var text: String
-    public var caret: Int
-    public var selectionLength: Int
+    public let text: String
+    public let caret: Int
+    public let selectionLength: Int
 
     public init(text: String, caret: Int, selectionLength: Int) {
         self.text = text

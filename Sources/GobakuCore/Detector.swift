@@ -7,12 +7,12 @@ public enum Span: Equatable {
 }
 
 public struct Judgment: Equatable {
-    public var convert: Bool
+    public let convert: Bool
     /// 打ち直す区間を先頭から順に並べたもの。最後がかななら変換待ちのまま残す
-    public var spans: [Span]
+    public let spans: [Span]
     /// 打ち直す前に Backspace で消す文字数（スペースを含む）
-    public var deleteCount: Int
-    public var reason: String
+    public let deleteCount: Int
+    public let reason: String
 
     /// かな区間のローマ字をつないだもの（単語間のスペースは除く）
     public var romaji: String {
@@ -24,10 +24,10 @@ public struct Judgment: Equatable {
 }
 
 /// 英数モードで打たれた末尾の文字列が「日本語のつもりのローマ字」かを判定する。
-public final class Detector {
-    public var minLetters: Int
+public struct Detector {
+    public let minLetters: Int
     /// ローマ字トークンのうち、英単語でないものが占める文字数の割合の下限
-    public var minJapaneseRatio: Double
+    public let minJapaneseRatio: Double
     let englishWords: Set<String>
 
     public init(englishWords: Set<String>, minLetters: Int = 4, minJapaneseRatio: Double = 0.5) {
@@ -176,8 +176,6 @@ public final class Detector {
             kana += t.kana
         }
         spans.append(.kana(romaji: romaji, kana: kana))
-        var result = Judgment(convert: false, spans: spans,
-                              deleteCount: chars.count - first.start, reason: "")
 
         var letters = 0
         var japaneseLetters = 0
@@ -190,17 +188,23 @@ public final class Detector {
             }
         }
 
+        let convert: Bool
+        let reason: String
         if hasSpacedParticle && remainderBelowJapaneseRatio(tokens) {
-            result.reason = "助詞の後ろが英単語"
+            convert = false
+            reason = "助詞の後ろが英単語"
         } else if !hasParticleSplit && !hasSpacedParticle && numbers.isEmpty && letters < minLetters {
-            result.reason = "短すぎる (\(letters) < \(minLetters))"
+            convert = false
+            reason = "短すぎる (\(letters) < \(minLetters))"
         } else if japaneseLetters == 0 || Double(japaneseLetters) / Double(letters) < minJapaneseRatio {
-            result.reason = "英単語が多い"
+            convert = false
+            reason = "英単語が多い"
         } else {
-            result.convert = true
-            result.reason = "日本語と判定"
+            convert = true
+            reason = "日本語と判定"
         }
-        return result
+        return Judgment(convert: convert, spans: spans,
+                        deleteCount: chars.count - first.start, reason: reason)
     }
 
     /// "korehatestwo" → これは + test + を。末尾の 1 語が「ローマ字＋英単語＋助詞」のときだけ分割する
@@ -545,10 +549,14 @@ extension Detector {
         guard !own.convert else { return own }
         let word = Self.trailingWord(of: context)
         guard !word.isEmpty else { return own }
-        var joined = judge(word + typed)
+        let joined = judge(word + typed)
         guard joined.convert, joined.deleteCount <= typed.count else { return own }
-        joined.reason += "（入力欄の直前の \(word.count) 文字とつないで判定）"
-        return joined
+        return Judgment(
+            convert: joined.convert,
+            spans: joined.spans,
+            deleteCount: joined.deleteCount,
+            reason: joined.reason + "（入力欄の直前の \(word.count) 文字とつないで判定）"
+        )
     }
 
     /// 末尾のスペースと、その前に続く ASCII の英数字。"PRはDraft" → "Draft"、"push origin " → "origin "
