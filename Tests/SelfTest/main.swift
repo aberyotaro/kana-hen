@@ -172,6 +172,68 @@ do {
     expect(!mac.judge("kanamono").convert, "kanamono stays English")
 }
 
+// 1 語に「ローマ字＋英単語＋助詞」が連結しているときは、英単語をそのまま挟んで打ち直す
+let gluedCases: [(String, [Span], Int)] = [
+    ("korehatestwo",
+     [.kana(romaji: "koreha", kana: "これは"), .literal("test"), .kana(romaji: "wo", kana: "を")], 12),
+    ("git korehatestwo",
+     [.kana(romaji: "koreha", kana: "これは"), .literal("test"), .kana(romaji: "wo", kana: "を")], 12),
+    ("watashihafilewodesu",
+     [.kana(romaji: "watashiha", kana: "わたしは"), .literal("file"), .kana(romaji: "wodesu", kana: "をです")], 19),
+    ("korehatestdesu?",
+     [.kana(romaji: "koreha", kana: "これは"), .literal("test"), .kana(romaji: "desu?", kana: "です？")], 15),
+]
+for (input, spans, deleting) in gluedCases {
+    let j = detector.judge(input)
+    expect(j.convert && j.spans == spans, "glued \(input.debugDescription): \(j.spans) [\(j.reason)]")
+    expect(j.deleteCount == deleting, "glued deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
+for input in [
+    "korehatest", "photoshopwo", "URLencode", "createfilemode", "korehafilemode",
+    "repositorynipush", "kotestwo",
+] {
+    let j = detector.judge(input)
+    expect(!j.convert, "glued must stay \(input.debugDescription): \(j.spans) [\(j.reason)]")
+}
+
+// 英単語・助詞・英単語（スペース区切り）は、助詞だけを打ち直す
+let spacedLiteralCases: [(String, [Span], Int)] = [
+    ("repository ni push", [.kana(romaji: "ni", kana: "に"), .literal(" push")], 7),
+    ("repository wo push main", [.kana(romaji: "wo", kana: "を"), .literal(" push main")], 12),
+    ("git repository ha push", [.kana(romaji: "ha", kana: "は"), .literal(" push")], 7),
+    ("PR ga merge", [.kana(romaji: "ga", kana: "が"), .literal(" merge")], 8),
+    ("repository de push ", [.kana(romaji: "de", kana: "で"), .literal(" push ")], 8),
+]
+for (input, spans, deleting) in spacedLiteralCases {
+    let j = detector.judge(input)
+    expect(j.convert && j.spans == spans, "spaced literal \(input.debugDescription): \(j.spans) [\(j.reason)]")
+    expect(j.deleteCount == deleting, "spaced literal deleteCount \(input.debugDescription): \(j.deleteCount)")
+}
+
+for input in [
+    "git push origin main", "want to go", "from A to B", "repository to push", "repository no push",
+    "repository he push", "repository ya push", "repositorynipush", "a ha moment", "I mo test",
+    "go ni push", "repository ha home", "repository ni kyou push",
+] {
+    let j = detector.judge(input)
+    expect(!j.convert, "spaced literal must stay \(input.debugDescription): \(j.spans) [\(j.reason)]")
+}
+
+do {
+    let d = Detector(englishWords: ["test", "repository", "push"])
+    let glued = d.judge("korehatestwo")
+    expect(glued.convert && glued.spans.count == 3 && glued.deleteCount == 12, "minimal dictionary glued: \(glued)")
+    let spaced = d.judge("repository ni push")
+    expect(spaced.convert && spaced.spans.count == 2 && spaced.deleteCount == 7, "minimal dictionary spaced: \(spaced)")
+}
+
+// 既存の 1 区間の判定は、かな区間 1 つだけで返す
+for input in ["kyouhaiitenkidesune", "git repositoryha", "repository ha ugokanai", "OK, kyouha tenki "] {
+    let j = detector.judge(input)
+    expect(j.convert && j.spans.count == 1, "single span \(input.debugDescription): \(j.spans)")
+}
+
 // 記号だけの語はローマ字の語に挟まれていれば一緒に打ち直し、前の英文側にあれば残す
 do {
     let j = detector.judge("kyouha ?")

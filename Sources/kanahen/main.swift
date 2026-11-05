@@ -18,6 +18,16 @@ func makeDetector(_ config: Config) -> Detector {
                     minJapaneseRatio: config.minJapaneseRatio)
 }
 
+func describe(_ spans: [Span]) -> String {
+    if spans.count == 1, case .kana(let romaji, let kana) = spans[0] { return "\(romaji) → \(kana)" }
+    return spans.map {
+        switch $0 {
+        case .kana(let romaji, let kana): return "[かな \(romaji) → \(kana)]"
+        case .literal(let text): return "[英字 \(text.debugDescription)]"
+        }
+    }.joined(separator: " ")
+}
+
 var args = Array(CommandLine.arguments.dropFirst())
 let command = args.first.flatMap { $0.hasPrefix("-") ? nil : $0 } ?? "run"
 if args.first == command { args.removeFirst() }
@@ -52,7 +62,7 @@ case "check":
     for input in inputs {
         let j = detector.judge(input)
         let mark = j.convert ? "✓" : "✗"
-        let detail = j.romaji.isEmpty ? "" : "  \(j.romaji) → \(j.kana)  削除 \(j.deleteCount) 文字"
+        let detail = j.spans.isEmpty ? "" : "  \(describe(j.spans))  削除 \(j.deleteCount) 文字"
         print("\(mark) \(input.debugDescription)  [\(j.reason)]\(detail)")
     }
 

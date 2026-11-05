@@ -1,13 +1,26 @@
 import Foundation
 
+/// 打ち直しの 1 区間。かなはかなモードでローマ字を打ち、英字はそのまま打つ。
+public enum Span: Equatable {
+    case kana(romaji: String, kana: String)
+    case literal(String)
+}
+
 public struct Judgment: Equatable {
     public var convert: Bool
-    /// IME に打ち直すローマ字（単語間のスペースは除く）
-    public var romaji: String
-    public var kana: String
+    /// 打ち直す区間を先頭から順に並べたもの。最後がかななら変換待ちのまま残す
+    public var spans: [Span]
     /// 打ち直す前に Backspace で消す文字数（スペースを含む）
     public var deleteCount: Int
     public var reason: String
+
+    /// かな区間のローマ字をつないだもの（単語間のスペースは除く）
+    public var romaji: String {
+        spans.reduce(into: "") { if case .kana(let r, _) = $1 { $0 += r } }
+    }
+    public var kana: String {
+        spans.reduce(into: "") { if case .kana(_, let k) = $1 { $0 += k } }
+    }
 }
 
 /// 英数モードで打たれた末尾の文字列が「日本語のつもりのローマ字」かを判定する。
@@ -74,6 +87,17 @@ public final class Detector {
     }
 
     public func judge(_ text: String) -> Judgment {
+        let base = judgeRomajiTail(text)
+        if base.convert { return base }
+        let chars = Array(text)
+        var end = chars.count
+        while end > 0, chars[end - 1] == " " { end -= 1 }
+        return judgeGluedEnglish(chars: chars, end: end)
+            ?? judgeSpacedLiteralTail(chars: chars, end: end)
+            ?? base
+    }
+
+    private func judgeRomajiTail(_ text: String) -> Judgment {
         let chars = Array(text)
         var end = chars.count
         while end > 0, chars[end - 1] == " " { end -= 1 }
@@ -111,14 +135,14 @@ public final class Detector {
         while let earliest = tokens.last, !earliest.word.contains(where: \.isLetter) { tokens.removeLast() }
 
         guard let first = tokens.last else {
-            return Judgment(convert: false, romaji: "", kana: "", deleteCount: 0, reason: "ローマ字ではない")
+            return Judgment(convert: false, spans: [], deleteCount: 0, reason: "ローマ字ではない")
         }
         let hasSpacedParticle = !hasParticleSplit && isSpacedParticle(chars: chars, earliest: first)
         tokens.reverse()
 
         let romaji = tokens.map(\.word).joined()
         let kana = tokens.map(\.kana).joined()
-        var result = Judgment(convert: false, romaji: romaji, kana: kana,
+        var result = Judgment(convert: false, spans: [.kana(romaji: romaji, kana: kana)],
                               deleteCount: chars.count - first.start, reason: "")
 
         var letters = 0
@@ -142,6 +166,82 @@ public final class Detector {
             result.reason = "日本語と判定"
         }
         return result
+    }
+
+    /// "korehatestwo" → これは + test + を。末尾の 1 語が「ローマ字＋英単語＋助詞」のときだけ分割する
+    private func judgeGluedEnglish(chars: [Character], end: Int) -> Judgment? {
+        var start = end
+        while start > 0, chars[start - 1] != " " { start -= 1 }
+        let word = String(chars[start..<end])
+        guard Romaji.toKana(word) == nil, splitParticle(word) == nil,
+              let spans = splitGluedEnglish(word) else { return nil }
+        return Judgment(convert: true, spans: spans, deleteCount: chars.count - start,
+                        reason: "ローマ字・英単語・助詞の連結と判定")
+    }
+
+    static let minGluedEnglishLength = 4
+
+    func splitGluedEnglish(_ word: String) -> [Span]? {
+        let chars = Array(word)
+        guard !isEnglish(word) else { return nil }
+        for suffixStart in 0..<chars.count {
+            let head = chars[..<suffixStart]
+            guard head.count >= minLetters + Self.minGluedEnglishLength,
+                  head.allSatisfy({ $0.isASCII && $0.isLowercase }) else { continue }
+            let suffix = String(chars[suffixStart...])
+            guard isParticleChain(suffix), let suffixKana = Romaji.toKana(suffix) else { continue }
+            let suffixLetters = suffix.filter(\.isLetter)
+            if !Self.particles.contains(suffixLetters), isEnglish(suffixLetters) { continue }
+
+            for split in minLetters...(head.count - Self.minGluedEnglishLength) {
+                let reading = String(head[..<split])
+                let english = String(head[split...])
+                guard englishWords.contains(english),
+                      Romaji.toKana(english) == nil,
+                      !englishWords.contains(english + suffixLetters),
+                      Romaji.toKana(reading) != nil,
+                      !isEnglish(reading) else { continue }
+                return [.kana(romaji: reading, kana: Romaji.toKana(reading)!),
+                        .literal(english),
+                        .kana(romaji: suffix, kana: suffixKana)]
+            }
+        }
+        return nil
+    }
+
+    /// 英文の中の to / no / he / ya は助詞ではないので、英文では使わない助詞だけを対象にする
+    static let spacedLiteralTailParticles: Set<String> = ["ha", "ga", "wo", "ni", "de", "mo"]
+
+    /// "repository ni push" → repository + に + " push"。助詞より後ろがローマ字でない語（英単語）だけのとき、助詞だけを打ち直す
+    private func judgeSpacedLiteralTail(chars: [Character], end: Int) -> Judgment? {
+        var words: [(start: Int, end: Int, text: String)] = []
+        var i = 0
+        while i < end {
+            if chars[i] == " " { i += 1; continue }
+            let start = i
+            while i < end, chars[i] != " " { i += 1 }
+            words.append((start, i, String(chars[start..<i])))
+        }
+
+        var hasUnreadableAfter = false
+        for index in stride(from: words.count - 1, through: 1, by: -1) {
+            let word = words[index]
+            if index < words.count - 1, hasUnreadableAfter,
+               Self.spacedLiteralTailParticles.contains(word.text),
+               isSpacedEnglishWord(words[index - 1].text),
+               let kana = Romaji.toKana(word.text) {
+                return Judgment(
+                    convert: true,
+                    spans: [.kana(romaji: word.text, kana: kana),
+                            .literal(String(chars[word.end..<chars.count]))],
+                    deleteCount: chars.count - word.start,
+                    reason: "英単語・助詞・英単語と判定")
+            }
+            let unreadable = Romaji.toKana(word.text) == nil
+            guard unreadable || isEnglish(word.text.lowercased()) else { return nil }
+            hasUnreadableAfter = hasUnreadableAfter || unreadable
+        }
+        return nil
     }
 
     /// 英単語の直後に付く助詞・語尾。この組み合わせだけで後半ができている場合に限って分割する
