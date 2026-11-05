@@ -72,4 +72,12 @@ public struct FocusedText: Equatable {
         guard caret >= typed16.count, caret <= utf16.count else { return false }
         return Array(utf16[(caret - typed16.count)..<caret]) == typed16
     }
+
+    /// カーソルの直前にある typed より前の文字（最大 limit 文字）。typed がカーソルの直前にないときは nil
+    public func text(before typed: String, limit: Int = 64) -> String? {
+        guard endsAtCaret(with: typed) else { return nil }
+        let end = caret - typed.utf16.count
+        let context = String(decoding: Array(text.utf16)[..<end], as: UTF16.self)
+        return String(context.suffix(limit))
+    }
 }

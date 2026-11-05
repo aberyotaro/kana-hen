@@ -197,7 +197,16 @@ final class Engine {
             log("Enter: 英数モードで打った文字がないため何もしません")
             return false
         }
-        let judgment = detector.judge(text)
+        var judgment = detector.judge(text)
+        // かなモードで確定した英単語のあとに、英数モードで助詞だけを打った場合は、入力欄の直前の文字とつないで判定する
+        var field: Result<FocusedText, FocusedTextError>?
+        if !judgment.convert {
+            let read = Accessibility.focusedText()
+            field = read
+            if case .success(let f) = read, let context = f.text(before: text) {
+                judgment = detector.judge(text, after: context)
+            }
+        }
         guard judgment.convert else {
             log("Enter: 変換しません（\(judgment.reason)）")
             return false
@@ -210,7 +219,7 @@ final class Engine {
         // 記録と入力欄がずれていると、打っていない文字まで Backspace で消してしまう。
         // 読めない欄（アクセシビリティ情報を出さないアプリ）は確認できないので従来どおり進める
         let typed = String(text.suffix(judgment.deleteCount))
-        switch Accessibility.focusedText() {
+        switch field ?? Accessibility.focusedText() {
         case .success(let field):
             guard field.endsAtCaret(with: typed) else {
                 log("Enter: 入力欄の内容が記録と一致しないため変換しません")

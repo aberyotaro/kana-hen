@@ -307,6 +307,25 @@ do {
     expect(b.text.isEmpty, "backspace after idle discards the buffer: \(b.text)")
 }
 
+// かなモードで確定した英単語のあとに、英数モードで助詞だけを打った場合
+do {
+    let d = detector
+    for (context, typed, kana) in [("PRはDraft", "de", "で"), ("Draft", " de", "で"), ("GitHub", "ni", "に"),
+                                   ("これは repository", "wo", "を"), ("API ", "de", "で")] {
+        let j = d.judge(typed, after: context)
+        expect(j.convert && j.kana == kana && j.deleteCount <= typed.count,
+               "\(context.debugDescription) + \(typed.debugDescription) → \(j.kana) (\(j.reason)) delete \(j.deleteCount)")
+    }
+    for (context, typed) in [("", "de"), ("これは", "de"), ("Draft", "ok"),
+                             ("hello", "world"), ("Draft", "do")] {
+        let j = d.judge(typed, after: context)
+        expect(!j.convert, "\(context.debugDescription) + \(typed.debugDescription) must stay: \(j.kana) (\(j.reason))")
+    }
+    let field = FocusedText(text: "PRはDraftde", caret: 10, selectionLength: 0)
+    expect(field.text(before: "de") == "PRはDraft", "context before typed: \(field.text(before: "de") ?? "nil")")
+    expect(field.text(before: "xx") == nil, "context needs typed at the caret")
+}
+
 // 英数キーを押した直後は、問い合わせ結果が日本語のままでも英数として扱う
 do {
     let t0 = Date()
