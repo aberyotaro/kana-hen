@@ -225,7 +225,7 @@ final class Engine {
         return true
     }
 
-    /// 区間を順に打ち直す。モードキーを送ってから switchDelayMs 待って打つ
+    /// 区間を順に打ち直す。モードキーを送り、switchDelayMs 以上待って入力モードが切り替わってから打つ
     private func replay(_ spans: ArraySlice<Span>) {
         guard let span = spans.first else {
             converting = false
@@ -234,11 +234,12 @@ final class Engine {
         }
         // TISSelectInputSource は日本語入力だとメニューバーだけ切り替わり、
         // 入力中のアプリに反映されないことがあるため、かなキー・英数キーを送る
+        let wantASCII: Bool
         switch span {
-        case .kana: post(Key.kana)
-        case .literal: post(Key.eisu)
+        case .kana: post(Key.kana); wantASCII = false
+        case .literal: post(Key.eisu); wantASCII = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(config.switchDelayMs)) { [self] in
+        waitForMode(ascii: wantASCII, started: DispatchTime.now()) { [self] in
             switch span {
             case .kana(let romaji, _):
                 for c in romaji {
@@ -248,6 +249,27 @@ final class Engine {
                 typeLiteral(text)
             }
             replay(spans.dropFirst())
+        }
+    }
+
+    /// 日本語入力は切り替えに時間がかかることがあり（しばらく使っていなかった直後など）、
+    /// 決まった時間だけ待つと、かなのつもりのローマ字が英字のまま入る
+    private func waitForMode(ascii: Bool, started: DispatchTime, then body: @escaping () -> Void) {
+        let poll = 10
+        let timeoutMs = 1000
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(poll)) { [self] in
+            let ms = Int((DispatchTime.now().uptimeNanoseconds - started.uptimeNanoseconds) / 1_000_000)
+            let switched = InputSource.isCurrentASCII() == ascii
+            if ms < config.switchDelayMs || (!switched && ms < timeoutMs) {
+                waitForMode(ascii: ascii, started: started, then: body)
+                return
+            }
+            if !switched {
+                diag("input mode switch timed out after \(ms) ms")
+            } else if ms > config.switchDelayMs + poll {
+                diag("input mode switch took \(ms) ms")
+            }
+            body()
         }
     }
 

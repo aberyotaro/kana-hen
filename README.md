@@ -73,7 +73,7 @@ launchctl kickstart -k gui/$(id -u)/local.kanahen
 |---|---|
 | `minLetters` | 変換する最小の文字数 |
 | `minJapaneseRatio` | 英単語でない語の文字数の割合の下限 |
-| `switchDelayMs` | 入力モードを切り替えてから打つまでの待ち時間。打ち直しが英字のまま入るなら増やす |
+| `switchDelayMs` | 入力モードを切り替えてから打つまでの最短の待ち時間。切り替わらないときは最長 1 秒まで待つ |
 | `enabledApps` | 動かすアプリの bundle ID。空ならすべて |
 | `disabledApps` | 動かさないアプリの bundle ID。省略時は主なターミナル。書くと既定を置き換える |
 | `japaneseInputSourceID` | このかな入力が有効なときだけ変換する |
