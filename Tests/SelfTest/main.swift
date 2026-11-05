@@ -83,6 +83,12 @@ let particleCases: [(String, String, String)] = [
     ("repositoryno", "no", "の"),
     ("repositorytoka", "toka", "とか"),
     ("Draftnisite", "nisite", "にして"),
+    ("pushsite", "site", "して"),
+    ("18ji", "ji", "じ"),
+    ("18jikara", "jikara", "じから"),
+    ("3kaime", "kaime", "かいめ"),
+    ("5ha", "ha", "は"),
+    ("mergesitekudasai?", "sitekudasai?", "してください？"),
     ("Draftnishitekudasai", "nishitekudasai", "にしてください"),
     ("mergesitekudasai", "sitekudasai", "してください"),
     ("reviewonegaishimasu", "onegaishimasu", "おねがいします"),
@@ -149,8 +155,8 @@ for input in [
     "repository go", "repository do",
     "repository demo", "repository made", "repositorymade", "repositorydemo",
     "OK to", "PR to", "made",
-    // 別の綴り（site = して）や、英語の語尾にもなる語は英語のまま
-    "site", "Draftsite", "GitHubsite", "SQLite", "thankyou", "masu", "tara", "tari",
+    // 単独の site や、英語の語尾にもなる語は英語のまま。website は辞書にある 1 語
+    "site", "website", "callsite", "sunsite", "campsite", "3do", "x86", "4k", "SQLite", "thankyou", "masu", "tara", "tari",
 ] {
     let j = detector.judge(input)
     expect(!j.convert, "english must stay \(input.debugDescription): \(j.romaji) → \(j.kana) [\(j.reason)]")

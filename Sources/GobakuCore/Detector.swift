@@ -46,6 +46,8 @@ public final class Detector {
         // 開発でよく打つ語
         "info", "repo", "todo", "nano", "inode", "sudo", "ubuntu", "debian", "mongo",
         "deno", "rebase", "goroutine", "tokenize", "memoize", "demo", "promo", "techno",
+        // site は「して」の別の綴りなので、辞書にない -site の複合語は英語として載せる
+        "website", "callsite", "campsite", "worksite", "jobsite", "offsite", "onsite", "homesite",
         "pesto", "github", "gitlab", "golang", "docker", "python", "javascript",
         "typescript", "slack", "claude", "iphone", "macos", "linux", "json", "yaml", "howto",
         // チャットでよく打つ口語。辞書にないうえ、ローマ字としても読めてしまう
@@ -53,7 +55,9 @@ public final class Detector {
     ]
 
     /// 英単語とみなすか。辞書にない複合語（database, runtime）や -tion 語も英語として扱う
-    func isEnglish(_ word: String) -> Bool {
+    /// compoundEndings は、複合語の後半として英単語とみなさない語。
+    /// 英単語＋語尾に分けるときは、site（して）のような別の綴りも語尾として扱う（push+site）
+    func isEnglish(_ word: String, compoundEndings: Set<String> = japaneseEndings) -> Bool {
         // ホストの辞書は OS で違う。web2 は shita を載せるが、語尾は日本語。
         if Self.japaneseEndings.contains(word) { return false }
         if englishWords.contains(word) { return true }
@@ -65,7 +69,7 @@ public final class Detector {
         guard chars.count >= 7 else { return false }
         for split in 3...(chars.count - 4) {
             let tail = String(chars[split...])
-            if Self.japaneseEndings.contains(tail) { continue }
+            if compoundEndings.contains(tail) { continue }
             if englishWords.contains(String(chars[..<split])),
                englishWords.contains(tail) {
                 return true
@@ -297,6 +301,11 @@ public final class Detector {
         particles.filter { $0.count >= 4 && $0.allSatisfy(\.isLetter) }
     ).subtracting(englishHomographParticles)
 
+    /// 英単語 2 つの複合語かを調べるとき、後半として英単語とみなさない語尾。別の綴りも含める
+    static let compoundEndings: Set<String> = Set(
+        particleSpellings.filter { $0.count >= 4 && $0.allSatisfy(\.isLetter) }
+    ).subtracting(englishHomographParticles)
+
     static let bareSpacedParticles: Set<String> = [
         "ha", "ga", "wo", "ni", "de", "mo",
         "kara", "yori", "dake", "nara", "toka",
@@ -309,20 +318,43 @@ public final class Detector {
     /// "repositoryha" → ("ha", "は")。前半が英単語で、後半が助詞の組み合わせのときだけ分割する
     func splitParticle(_ word: String) -> (offset: Int, suffix: String, kana: String)? {
         let chars = Array(word)
-        guard !isEnglish(word.lowercased()) else { return nil }
+        guard !isEnglish(word.lowercased(), compoundEndings: Self.compoundEndings) else { return nil }
 
-        for offset in 2..<max(2, chars.count) {
+        for offset in 1..<max(1, chars.count) {
             let prefix = String(chars[..<offset])
             let suffix = String(chars[offset...])
-            guard isParticleChain(suffix), isEnglishPrefix(prefix),
+            // "18ji" "3kaime" のように数字の後ろは、時・回などの助数詞から始まってもよい
+            let isNumber = prefix.allSatisfy(\.isNumber)
+            guard isParticleChain(suffix) || (isNumber && isCounterChain(suffix)),
+                  isEnglishPrefix(prefix),
                   let kana = Romaji.toKana(suffix) else { continue }
-            // "createfilemode" の mode のように後半が英単語なら、英単語の途中で切っている
+            // "createfilemode" の mode のように後半が英単語なら、英単語の途中で切っている。
+            // ただし site（して）のような語尾の別の綴りは、英単語の直後なら語尾とみなす（pushsite）
             let suffixLetters = suffix.filter(\.isLetter)
-            if !Self.particles.contains(suffixLetters), isEnglish(suffixLetters) { continue }
+            // 数字の後ろの助数詞（fun, kai, en）は、英単語と同じ綴りでも助数詞とみなす
+            if !Self.particleSpellings.contains(suffixLetters),
+               !(isNumber && isCounterChain(suffixLetters)),
+               isEnglish(suffixLetters) { continue }
             if cutsInsideDictionaryWord(prefix: prefix, suffixLetters: suffixLetters) { continue }
             return (offset, suffix, kana)
         }
         return nil
+    }
+
+    /// 数字の直後に付く助数詞。"18ji" → 18じ。do（度）は 3do（3DO）と紛れるので入れない
+    static let counters: Set<String> = Set([
+        "ji", "jikan", "fun", "pun", "byou", "nichi", "gatsu", "kagetsu", "nen", "shuukan",
+        "kai", "kaime", "ko", "hon", "bon", "pon", "mai", "nin", "en", "sai",
+        "ban", "banme", "bai", "ken", "dai", "man", "oku", "sen", "hyaku", "wari", "tsu",
+    ].flatMap(spellingVariants))
+
+    /// 助数詞 1 つと、その後ろの助詞の連なり（なくてもよい）。"18jikara" → じ + から
+    func isCounterChain(_ s: String) -> Bool {
+        Self.counters.contains { counter in
+            guard s.hasPrefix(counter) else { return false }
+            let rest = String(s.dropFirst(counter.count))
+            return rest.isEmpty || isParticleChain(rest)
+        }
     }
 
     private func cutsInsideDictionaryWord(prefix: String, suffixLetters: String) -> Bool {
