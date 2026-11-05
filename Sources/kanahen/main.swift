@@ -1,5 +1,5 @@
 import Cocoa
-import GobakuCore
+import Conversion
 
 let usage = """
 使い方:

@@ -5,9 +5,10 @@ let package = Package(
     name: "kanahen",
     platforms: [.macOS(.v13)],
     targets: [
-        .target(name: "GobakuCore"),
-        .executableTarget(name: "kanahen", dependencies: ["GobakuCore"]),
+        .target(name: "Conversion"),
+        .target(name: "Capture"),
+        .executableTarget(name: "kanahen", dependencies: ["Conversion", "Capture"]),
         // Command Line Tools だけでは XCTest / swift-testing が使えないため、実行形式のテストにしている
-        .executableTarget(name: "selftest", dependencies: ["GobakuCore"], path: "Tests/SelfTest"),
+        .executableTarget(name: "selftest", dependencies: ["Conversion", "Capture"], path: "Tests/SelfTest"),
     ]
 )

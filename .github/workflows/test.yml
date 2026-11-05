@@ -1,0 +1,22 @@
+# 常駐アプリは Cocoa が要る。selftest は /usr/share/dict/words を読むので、
+# その辞書がある macOS ランナーで、ローカル確認と同じコマンドを走らせる。
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run selftest
+        run: |
+          swift build
+          .build/debug/selftest
