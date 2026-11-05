@@ -11,6 +11,8 @@ private enum Key {
     static let delete: CGKeyCode = 51
     /// JIS の「かな」キー。US 配列の Mac でも日本語入力に切り替わる
     static let kana: CGKeyCode = 104
+    /// JIS の「英数」キー
+    static let eisu: CGKeyCode = 102
 
     /// US / JIS 配列で共通の仮想キーコード（文字, キーコード, Shift が必要か）
     static let codes: [Character: (CGKeyCode, Bool)] = {
@@ -185,18 +187,48 @@ final class Engine {
         converting = true
         DispatchQueue.main.async { [self] in
             for _ in 0..<judgment.deleteCount { post(Key.delete) }
-            // TISSelectInputSource は日本語入力だとメニューバーだけ切り替わり、
-            // 入力中のアプリに反映されないことがあるため、かなキーを送る
-            post(Key.kana)
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(config.switchDelayMs)) { [self] in
-                for c in judgment.romaji {
-                    if let (code, shift) = Key.codes[c] { post(code, shift: shift) }
-                }
-                converting = false
-                replayHeldKeys()
-            }
+            replay(judgment.spans[...])
         }
         return true
+    }
+
+    /// 区間を順に打ち直す。モードキーを送ってから switchDelayMs 待って打つ
+    private func replay(_ spans: ArraySlice<Span>) {
+        guard let span = spans.first else {
+            converting = false
+            replayHeldKeys()
+            return
+        }
+        // TISSelectInputSource は日本語入力だとメニューバーだけ切り替わり、
+        // 入力中のアプリに反映されないことがあるため、かなキー・英数キーを送る
+        switch span {
+        case .kana: post(Key.kana)
+        case .literal: post(Key.eisu)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(config.switchDelayMs)) { [self] in
+            switch span {
+            case .kana(let romaji, _):
+                for c in romaji {
+                    if let (code, shift) = Key.codes[c] { post(code, shift: shift) }
+                }
+            case .literal(let text):
+                typeLiteral(text)
+            }
+            replay(spans.dropFirst())
+        }
+    }
+
+    private func typeLiteral(_ text: String) {
+        for character in text {
+            let units = Array(String(character).utf16)
+            for down in [true, false] {
+                guard let e = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: down) else { continue }
+                e.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                e.flags = []
+                e.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
+                e.post(tap: .cghidEventTap)
+            }
+        }
     }
 
     private func replayHeldKeys() {
