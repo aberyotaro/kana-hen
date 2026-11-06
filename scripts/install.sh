@@ -84,19 +84,35 @@ EOF
     echo "install.sh: $plist を作りました"
 fi
 
-if launchctl print "gui/$uid/$label" >/dev/null 2>&1; then
-    launchctl kickstart -k "gui/$uid/$label"
-else
+if ! launchctl print "gui/$uid/$label" >/dev/null 2>&1; then
     launchctl bootstrap "gui/$uid" "$plist"
 fi
 
-sleep 1
-if pgrep -f "$dest run" >/dev/null; then
-    echo "install.sh: 常駐版を起動しました"
+# 署名し直した直後は、macOS がコード署名を理由に起動を止める（OS_REASON_CODESIGNING）ことがある。
+# 少し置いて起動し直すと通るので、その理由で止まったときだけ数回やり直す
+exit_reason=""
+for attempt in 1 2 3; do
+    launchctl kickstart -k "gui/$uid/$label"
+    sleep 1
+    if pgrep -f "$dest run" >/dev/null; then
+        echo "install.sh: 常駐版を起動しました"
+        exit 0
+    fi
+    exit_reason="$(launchctl print "gui/$uid/$label" 2>/dev/null \
+        | sed -n 's/^[[:space:]]*last exit reason = //p' | head -n 1 || true)"
+    [ "$exit_reason" = "OS_REASON_CODESIGNING" ] || break
+    sleep "$attempt"
+done
+
+if [ "$exit_reason" = "OS_REASON_CODESIGNING" ]; then
+    echo "install.sh: 常駐版が起動していません。macOS がコード署名を理由に起動を止めました。" >&2
+    echo "  次で署名を確かめてから、起動し直してください。" >&2
+    echo "  codesign --verify --verbose $dest" >&2
 else
-    echo "install.sh: 常駐版が起動していません。アクセシビリティの許可が必要です。" >&2
-    echo "  システム設定 > プライバシーとセキュリティ > アクセシビリティ で kanahen をオンにし" >&2
-    echo "  （一覧になければ「＋」で $dest を追加）、次で起動してください。" >&2
-    echo "  launchctl kickstart -k gui/\$(id -u)/$label" >&2
-    exit 1
+    echo "install.sh: 常駐版が起動していません。理由は $HOME/Library/Logs/kanahen.log の末尾に出ています。" >&2
+    echo "  「アクセシビリティの許可が必要です」と出ていたら、システム設定 > プライバシーとセキュリティ >" >&2
+    echo "  アクセシビリティ で kanahen をオンにしてください（一覧になければ「＋」で $dest を追加）。" >&2
+    echo "  そのあと、次で起動してください。" >&2
 fi
+echo "  launchctl kickstart -k gui/\$(id -u)/$label" >&2
+exit 1
