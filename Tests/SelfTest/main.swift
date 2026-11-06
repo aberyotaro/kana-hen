@@ -53,6 +53,7 @@ let english = [
     "this is fine", "anime", "here", "women", "domain", "hidden", "notion", "sure",
     "hope so", "database", "metadata", "runtime", "basename", "automation", "info",
     "repo", "todo", "sudo", "manpage", "tokenization", "configuration", "hai", "ok go",
+    "e2e", "i18n", "h2o", "2fa", "3do", "1on1", "pod2man", "mp3ko",
 ]
 for input in english {
     let j = detector.judge(input)
@@ -196,6 +197,13 @@ let numberedCases: [(String, [Span], Int)] = [
     ("18ji30pun",
      [.kana(romaji: "ji", kana: "じ"), .literal("30"), .kana(romaji: "pun", kana: "ぷん")], 7),
     ("meeting 18ji kara", [.kana(romaji: "jikara", kana: "じから")], 7),
+    // 一覧にない単位と、ん を nn と打った単位。数字ごと英単語の前半とみなして語尾だけを打ち直さない
+    ("6kenn", [.kana(romaji: "kenn", kana: "けん")], 4),
+    ("6kenndesu", [.kana(romaji: "kenndesu", kana: "けんです")], 8),
+    ("3tsume", [.kana(romaji: "tsume", kana: "つめ")], 5),
+    ("2dann", [.kana(romaji: "dann", kana: "だん")], 4),
+    ("kinou 6kenn",
+     [.kana(romaji: "kinou", kana: "きのう"), .literal("6"), .kana(romaji: "kenn", kana: "けん")], 11),
 ]
 for (input, spans, deleting) in numberedCases {
     let j = detector.judge(input)

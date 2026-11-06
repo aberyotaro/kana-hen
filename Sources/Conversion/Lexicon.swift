@@ -89,10 +89,12 @@ extension Detector {
 
     static let spacedParticles: Set<String> = bareSpacedParticles.union(englishWordParticles)
 
-    /// 数字の直後に付く助数詞。"18ji" → 18じ。do（度）は 3do（3DO）と紛れるので入れない
+    /// 数字の直後に付く助数詞のうち、英単語と同じ綴りか 1 文字のもの。"18ji" → 18じ。
+    /// ここにない単位も、英単語でないローマ字なら数字の後ろで変換する（Detector.isNumberUnit）。
+    /// 末尾の ん は nn とも打つ（6kenn）。do（度）は 3do（3DO）と紛れるので入れない
     static let counters: Set<String> = Set([
         "ji", "jikan", "fun", "pun", "byou", "nichi", "gatsu", "kagetsu", "nen", "shuukan",
         "kai", "kaime", "ko", "hon", "bon", "pon", "mai", "nin", "en", "sai",
         "ban", "banme", "bai", "ken", "dai", "man", "oku", "sen", "hyaku", "wari", "tsu",
-    ].flatMap(spellingVariants))
+    ].flatMap(spellingVariants).flatMap { $0.hasSuffix("n") ? [$0, $0 + "n"] : [$0] })
 }

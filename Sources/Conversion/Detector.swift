@@ -271,10 +271,21 @@ public struct Detector {
         let digits = String(beforeRest.reversed().prefix(while: \.isNumber).reversed())
         let head = String(beforeRest.dropLast(digits.count))
         // 数字の前がローマ字でない語（pod2man, mp3ko）は、英語の名前の一部なので分けない
-        guard !digits.isEmpty, digits.allSatisfy(\.isASCII), isCounterChain(rest),
+        guard !digits.isEmpty, digits.allSatisfy(\.isASCII), isNumberUnit(rest),
               head.isEmpty || splitNumberedCounter(head) != nil || Romaji.toKana(head) != nil,
               let kana = Romaji.toKana(rest) else { return nil }
         return (head, digits, rest, kana)
+    }
+
+    /// 数字の後ろに続く日本語の単位と語尾。"6kenndesu" → けんです、"3tsume" → つめ。
+    /// 助数詞の一覧にある語は英単語と同じ綴り（fun, man）でも、1 文字（ko）でも認める。
+    /// 一覧にない語は、2 文字以上のローマ字で英単語でないときだけ認める（e2e, i18n, 2fa を除く）
+    func isNumberUnit(_ s: String) -> Bool {
+        if isCounterChain(s) { return true }
+        guard let first = s.first, first.isASCII, first.isLowercase,
+              Romaji.toKana(s) != nil else { return false }
+        let letters = s.filter(\.isLetter)
+        return letters.count >= 2 && !isEnglish(letters)
     }
 
     /// 助数詞 1 つと、その後ろの助詞の連なり（なくてもよい）。"18jikara" → じ + から
