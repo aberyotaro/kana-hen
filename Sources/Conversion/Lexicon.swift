@@ -82,7 +82,7 @@ extension Detector {
 
     static let bareSpacedParticles: Set<String> = [
         "ha", "ga", "wo", "ni", "de", "mo",
-        "kara", "yori", "dake", "nara", "toka",
+        "kara", "yori", "dake", "nara", "toka", "tte",
     ]
 
     static let englishWordParticles: Set<String> = ["to", "no", "he", "ya"]

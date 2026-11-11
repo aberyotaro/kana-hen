@@ -391,11 +391,13 @@ public struct Detector {
     }
 
     private func isSpacedAnchor(_ word: String, particle: String) -> Bool {
-        guard isSpacedEnglishWord(word) else { return false }
         if Self.englishWordParticles.contains(particle) {
-            return isTechnicalToken(word)
+            return isSpacedEnglishWord(word) && isTechnicalToken(word)
         }
-        return true
+        // 辞書にない英単語（scratchpad）も、ローマ字として読めなければ英単語とみなす
+        return isSpacedEnglishWord(word)
+            || (word.count >= 3 && word.allSatisfy({ $0.isASCII && $0.isLetter })
+                && Romaji.toKana(word) == nil)
     }
 
     private func isSpacedEnglishWord(_ word: String) -> Bool {
